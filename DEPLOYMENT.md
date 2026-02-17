@@ -38,7 +38,7 @@ You MUST add the following environment variables in the Vercel dashboard under "
 | `OPENAI_API_KEY` | `sk-...` (Your OpenAI Key) |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` (Your Anthropic Key) |
 | `GOOGLE_API_KEY` | `AIza...` (Your Google Key) |
-| `GEMINI_MODEL` | `gemini-2.0-flash` |
+| `GEMINI_MODEL` | `gemini-3-flash-preview` |
 | `USE_OLLAMA` | `false` (IMPORTANT: Disable local AI) |
 | `NEXT_PUBLIC_API_URL` | `/api` (Relative path for frontend to find backend) |
 

@@ -3,7 +3,7 @@
 <div align="center">
 
 > **A Next-Generation AI Agent System combining Local & Cloud Intelligence**
-> *OpenAI GPT-4 • Anthropic Claude 3.5 • Google Gemini 2.0 • Local Llama 3.2*
+> *OpenAI GPT-4 • Anthropic Claude 3.5 • Google Gemini 3 Flash • Local Llama 3.2*
 
 ![Z3ube Banner](https://img.shields.io/badge/Status-Active-success)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
@@ -32,7 +32,7 @@ Z3ube's reasoning engine cycles through these state-of-the-art models for every 
 | **1** | 🏠 **Local** | **Llama 3.2 3B** | **Speed & Privacy** - Rapid initial thought generation |
 | **2** | 🌐 **OpenAI** | **GPT-4** | **Logic & Strategy** - Deep reasoning and decomposition |
 | **3** | 🌍 **Anthropic** | **Claude 3.5 Sonnet** | **Nuance & Planning** - Creative problem solving |
-| **4** | ⚡ **Google** | **Gemini 2.0 Flash** | **Context & Synthesis** - High-speed information processing |
+| **4** | ⚡ **Google** | **Gemini 3 Flash** | **Context & Synthesis** - Frontier speed & reasoning |
 
 ---
 

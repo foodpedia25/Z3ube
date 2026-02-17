@@ -78,7 +78,7 @@ class ReasoningEngine:
         self.ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
         
         # Configure Gemini
-        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
         
         if self.use_ollama:
             try:
