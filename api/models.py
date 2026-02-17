@@ -10,6 +10,8 @@ from typing import List, Optional, Dict, Any
 class ChatRequest(BaseModel):
     message: str = Field(..., description="User message")
     conversation_id: Optional[str] = None
+    depth: str = Field("quick", description="Reasoning depth: quick, normal, or deep")
+    model: str = Field("auto", description="AI Model to use: auto, openai, anthropic, gemini, llama")
 
 
 class ChatResponse(BaseModel):

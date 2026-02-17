@@ -9,10 +9,11 @@ This module implements sophisticated multi-step reasoning with:
 """
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime
 import json
+import asyncio
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -20,7 +21,7 @@ load_dotenv()
 
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
-import google.generativeai as genai
+
 from langchain_ollama import ChatOllama
 
 
@@ -71,7 +72,7 @@ class ReasoningEngine:
         # Initialize AI clients
         self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.anthropic_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
         
         # Initialize Ollama (local LLM)
         self.use_ollama = os.getenv("USE_OLLAMA", "false").lower() == "true"
@@ -79,6 +80,12 @@ class ReasoningEngine:
         
         # Configure Gemini
         self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+        
+        # Configure OpenAI
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+
+        # Configure Mock LLM for testing
+        self.mock_llm = os.getenv("MOCK_LLM", "false").lower() == "true"
         
         if self.use_ollama:
             try:
@@ -96,7 +103,7 @@ class ReasoningEngine:
         self.short_term_memory: List[Dict[str, Any]] = []
         self.long_term_memory: List[Dict[str, Any]] = []
         
-    async def reason(self, query: str, depth: str = "deep") -> ReasoningResult:
+    async def reason(self, query: str, depth: str = "deep", model: str = "auto") -> ReasoningResult:
         """
         Main reasoning method using chain-of-thought
         
@@ -107,6 +114,9 @@ class ReasoningEngine:
         Returns:
             ReasoningResult with complete reasoning chain
         """
+        if self.mock_llm:
+            return await self._mock_reason(query, depth)
+
         start_time = datetime.now()
         
         # Step 1: Decompose the problem
@@ -116,7 +126,7 @@ class ReasoningEngine:
         plan = await self._create_plan(query, decomposition)
         
         # Step 3: Execute reasoning steps
-        steps = await self._execute_reasoning_chain(query, plan, depth)
+        steps = await self._execute_reasoning_chain(query, plan, depth, model)
         
         # Step 4: Synthesize conclusion
         conclusion = await self._synthesize_conclusion(query, steps)
@@ -148,7 +158,7 @@ Problem: {query}
 Provide a numbered list of sub-problems that need to be addressed to solve this."""
 
         response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
+            model=self.openai_model,
             messages=[
                 {"role": "system", "content": "You are an expert problem decomposition specialist."},
                 {"role": "user", "content": prompt}
@@ -193,28 +203,46 @@ Provide a detailed execution plan with specific steps."""
         self, 
         query: str, 
         plan: Dict[str, Any],
-        depth: str
+        depth: str,
+        model: str = "auto"
     ) -> List[ThoughtStep]:
-        """Execute the reasoning chain step by step"""
+        """Execute the reasoning chain step by step with optional model enforcement"""
         steps = []
         num_steps = 3 if depth == "quick" else 5 if depth == "normal" else 8
         
         for i in range(num_steps):
             prompt = self._build_step_prompt(query, plan, steps, i + 1)
             
-            # Rotate between models for diverse perspectives
-            # Pattern: Ollama (if enabled) -> OpenAI -> Anthropic -> Gemini
-            
-            model_index = i % 4 if self.use_ollama else i % 3
-            
-            if self.use_ollama and model_index == 0:
-                 thought, reasoning, confidence = await self._reason_with_ollama(prompt)
-            elif (self.use_ollama and model_index == 1) or (not self.use_ollama and model_index == 0):
-                thought, reasoning, confidence = await self._reason_with_openai(prompt)
-            elif (self.use_ollama and model_index == 2) or (not self.use_ollama and model_index == 1):
-                thought, reasoning, confidence = await self._reason_with_anthropic(prompt)
+            # Determine which model to use
+            if model != "auto":
+                target_model = model.lower()
+                if target_model == "openai":
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                elif target_model == "anthropic":
+                    thought, reasoning, confidence = await self._reason_with_anthropic(prompt)
+                elif target_model == "gemini":
+                    thought, reasoning, confidence = await self._reason_with_gemini(prompt)
+                elif target_model == "llama" and self.use_ollama:
+                    thought, reasoning, confidence = await self._reason_with_ollama(prompt)
+                elif target_model == "llama" and not self.use_ollama:
+                    # Fallback if Llama requested but not available
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                else:
+                    # Default fallback
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
             else:
-                thought, reasoning, confidence = await self._reason_with_gemini(prompt)
+                # Auto rotation logic
+                # Pattern: Ollama (if enabled) -> OpenAI -> Anthropic -> Gemini
+                model_index = i % 4 if self.use_ollama else i % 3
+                
+                if self.use_ollama and model_index == 0:
+                     thought, reasoning, confidence = await self._reason_with_ollama(prompt)
+                elif (self.use_ollama and model_index == 1) or (not self.use_ollama and model_index == 0):
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                elif (self.use_ollama and model_index == 2) or (not self.use_ollama and model_index == 1):
+                    thought, reasoning, confidence = await self._reason_with_anthropic(prompt)
+                else:
+                    thought, reasoning, confidence = await self._reason_with_gemini(prompt)
             
             step = ThoughtStep(
                 step_number=i + 1,
@@ -254,7 +282,7 @@ Focus on moving toward a solution."""
     async def _reason_with_openai(self, prompt: str) -> tuple[str, str, float]:
         """Perform reasoning using OpenAI's model"""
         response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
+            model=self.openai_model,
             messages=[
                 {"role": "system", "content": "You are a brilliant reasoning engine. Think step by step with clear logic."},
                 {"role": "user", "content": prompt}
@@ -317,16 +345,22 @@ Focus on moving toward a solution."""
             return await self._reason_with_openai(prompt)
 
     async def _reason_with_gemini(self, prompt: str) -> tuple[str, str, float]:
-        """Perform reasoning using Google's Gemini model"""
+        """Perform reasoning using Google's Gemini model via new SDK"""
         try:
-            model = genai.GenerativeModel(self.gemini_model)
+            from google import genai
+            from google.genai import types
+            
+            client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
             
             # Simple prompt wrapper for Gemini
             gemini_prompt = f"System: You are a brilliant reasoning engine. Think step by step.\n\nUser: {prompt}"
             
-            # Use run_in_executor for async wrapper if needed, but generate_content_async is better if available
-            # Current library version might support async directly
-            response = await model.generate_content_async(gemini_prompt)
+            # generate_content is synchronous in the basic client, but fast enough for now
+            # For true async, we'd use AsyncClient if available or run_in_executor
+            response = client.models.generate_content(
+                model=self.gemini_model,
+                contents=gemini_prompt
+            )
             
             content = response.text
             
@@ -361,7 +395,7 @@ Reasoning chain:
 Synthesize these steps into a comprehensive answer."""
 
         response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
+            model=self.openai_model,
             messages=[
                 {"role": "system", "content": "You are an expert at synthesizing conclusions from reasoning chains."},
                 {"role": "user", "content": prompt}
@@ -449,6 +483,152 @@ Final Conclusion: [validated conclusion]"""
             "recent_queries": [m["query"] for m in self.short_term_memory[-5:]]
         }
 
+
+    async def reason_stream(self, query: str, depth: str = "deep", model: str = "auto") -> AsyncGenerator[str, None]:
+        """
+        Stream reasoning process and final conclusion
+        
+        Args:
+            query: The problem or question
+            depth: Reasoning depth
+            
+        Yields:
+            JSON string chunks containing 'type' (thought/content) and 'data'
+        """
+        if self.mock_llm:
+            async for chunk in self._mock_reason_stream(query, depth):
+                yield chunk
+            return
+
+        # Step 1: Decompose
+        yield json.dumps({"type": "thought", "data": "Analyzing request..."}) + "\n"
+        decomposition = await self._decompose_problem(query)
+        yield json.dumps({"type": "thought", "data": f"Decomposed into {len(decomposition)} sub-problems"}) + "\n"
+        
+        # Step 2: Plan
+        plan = await self._create_plan(query, decomposition)
+        yield json.dumps({"type": "thought", "data": "Plan created. Executing reasoning chain..."}) + "\n"
+        
+        # Step 3: Execute (Streaming)
+        steps = []
+        num_steps = 3 if depth == "quick" else 5 if depth == "normal" else 8
+        
+        for i in range(num_steps):
+            yield json.dumps({"type": "thought", "data": f"Step {i+1}: Reasoning..."}) + "\n"
+            
+            prompt = self._build_step_prompt(query, plan, steps, i + 1)
+            
+            # Determine which model to use
+            if model != "auto":
+                target_model = model.lower()
+                if target_model == "openai":
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                elif target_model == "anthropic":
+                    thought, reasoning, confidence = await self._reason_with_anthropic(prompt)
+                elif target_model == "gemini":
+                    thought, reasoning, confidence = await self._reason_with_gemini(prompt)
+                elif target_model == "llama" and self.use_ollama:
+                    thought, reasoning, confidence = await self._reason_with_ollama(prompt)
+                elif target_model == "llama" and not self.use_ollama:
+                    # Fallback
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                else:
+                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
+            else:
+                 # Use OpenAI for auto mode (simplified for streaming demo stability)
+                 thought, reasoning, confidence = await self._reason_with_openai(prompt)
+            
+            step = ThoughtStep(i + 1, thought, reasoning, confidence)
+            steps.append(step)
+            
+            yield json.dumps({
+                "type": "step", 
+                "data": {
+                    "step": i+1, 
+                    "thought": thought,
+                    "reasoning": reasoning[:100] + "..." 
+                }
+            }) + "\n"
+            
+        # Step 4: Synthesize (Streamed)
+        yield json.dumps({"type": "thought", "data": "Synthesizing final answer..."}) + "\n"
+        
+        steps_summary = "\n".join([f"Step {s.step_number}: {s.thought}" for s in steps])
+        prompt = f"""Based on this step-by-step reasoning, provide a clear conclusion:
+Original question: {query}
+Reasoning chain:
+{steps_summary}
+Synthesize these steps into a comprehensive answer."""
+
+        # Stream the final conclusion
+        stream = await self.openai_client.chat.completions.create(
+            model=self.openai_model,
+            messages=[
+                {"role": "system", "content": "You are an expert at synthesizing conclusions."},
+                {"role": "user", "content": prompt}
+            ],
+            stream=True,
+            temperature=0.3
+        )
+        
+        async for chunk in stream:
+            if chunk.choices[0].delta.content:
+                yield json.dumps({"type": "content", "data": chunk.choices[0].delta.content}) + "\n"
+
+    async def _mock_reason(self, query: str, depth: str) -> ReasoningResult:
+        """Mock reasoning for testing"""
+        start_time = datetime.now()
+        await asyncio.sleep(1)  # Simulate latency
+        
+        steps = []
+        num_steps = 3 if depth == "quick" else 5 if depth == "normal" else 8
+        
+        for i in range(num_steps):
+            steps.append(ThoughtStep(
+                step_number=i+1,
+                thought=f"Mock thought {i+1} for {depth} depth",
+                reasoning="Mock reasoning details...",
+                confidence=0.9
+            ))
+            
+        conclusion = f"Mock conclusion for '{query}' at {depth} depth.\\n\\nHere is some code:\\n```python\\ndef hello_world():\\n    print('Hello Z3ube')\\n    return True\\n```"
+        execution_time = (datetime.now() - start_time).total_seconds()
+        
+        return ReasoningResult(
+            query=query,
+            steps=steps,
+            conclusion=conclusion,
+            confidence=0.95,
+            execution_time=execution_time
+        )
+
+    async def _mock_reason_stream(self, query: str, depth: str) -> AsyncGenerator[str, None]:
+        """Mock streaming reasoning for testing"""
+        yield json.dumps({"type": "thought", "data": "Mocking analysis..."}) + "\n"
+        await asyncio.sleep(0.5)
+        
+        num_steps = 3 if depth == "quick" else 5 if depth == "normal" else 8
+        
+        for i in range(num_steps):
+            yield json.dumps({"type": "thought", "data": f"Step {i+1}: Mock reasoning..."}) + "\n"
+            await asyncio.sleep(0.5)
+            
+            yield json.dumps({
+                "type": "step", 
+                "data": {
+                    "step": i+1, 
+                    "thought": f"Mock thought {i+1}",
+                    "reasoning": "Mock reasoning details..." 
+                }
+            }) + "\n"
+            
+        yield json.dumps({"type": "thought", "data": "Synthesizing answer..."}) + "\n"
+        await asyncio.sleep(0.5)
+        
+        conclusion = f"Mock conclusion for '{query}'."
+        for word in conclusion.split():
+            yield json.dumps({"type": "content", "data": word + " "}) + "\n"
+            await asyncio.sleep(0.1)
 
 # Global reasoning engine instance
 reasoning_engine = ReasoningEngine()

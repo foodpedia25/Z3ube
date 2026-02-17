@@ -27,10 +27,12 @@ try:
     from sentence_transformers import SentenceTransformer
     import numpy as np
     HAS_ML_DEPS = True
-except ImportError:
+except Exception as e:
     HAS_ML_DEPS = False
-    logger.warning("⚠️ Heavy ML dependencies (sentence-transformers, numpy) not found. Self-learning disabled.")
-
+    EmbeddingType = Any
+    logger.warning(f"⚠️ Heavy ML dependencies (sentence-transformers, numpy) not found or failed to load: {e}. Self-learning disabled.")
+else:
+    EmbeddingType = np.ndarray
 
 
 @dataclass
@@ -43,7 +45,7 @@ class Interaction:
     feedback: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.now)
     tags: List[str] = field(default_factory=list)
-    embedding: Optional[np.ndarray] = None
+    embedding: Optional[EmbeddingType] = None
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -84,17 +86,33 @@ class SelfLearningSystem:
     """
     
     def __init__(self, storage_path: str = "data/learning"):
-        self.storage_path = storage_path
-        os.makedirs(storage_path, exist_ok=True)
+        global HAS_ML_DEPS
+        # Check if running on Vercel or read-only FS
+        is_vercel = os.environ.get("VERCEL") == "1"
+        try:
+            cwd_writable = os.access(os.getcwd(), os.W_OK)
+        except Exception:
+            cwd_writable = False
+
+        if is_vercel or not cwd_writable:
+            # Use /tmp for read-only environments (ephemeral)
+            self.storage_path = "/tmp/data/learning"
+            logger.info(f"Read-only environment or CWD inaccessible. Using ephemeral storage at {self.storage_path}")
+        else:
+            self.storage_path = storage_path
+            
+        os.makedirs(self.storage_path, exist_ok=True)
         
         # Embedding model for similarity comparisons
         if HAS_ML_DEPS:
             try:
+                logger.info("Loading SentenceTransformer model...")
+                print("⏳ Loading embedding model...")
                 self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                print("✅ Embedding model loaded")
             except Exception as e:
                 logger.error(f"Failed to load SentenceTransformer: {e}")
                 self.embedding_model = None
-                global HAS_ML_DEPS
                 HAS_ML_DEPS = False
         else:
             self.embedding_model = None

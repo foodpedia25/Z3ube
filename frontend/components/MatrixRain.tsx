@@ -12,57 +12,53 @@ export default function MatrixRain() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Set canvas size
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        let width = window.innerWidth;
+        let height = window.innerHeight;
 
-        // Matrix characters
+        canvas.width = width;
+        canvas.height = height;
+
+        const columns = Math.ceil(width / 20);
+        const drops = Array(columns).fill(1).map(() => Math.floor(Math.random() * -100)); // Start above screen for staggered entry
+
+        // Matrix characters (katakana + latin + numbers)
         const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
         const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         const nums = '0123456789';
-        const alphabet = katakana + latin + nums;
-
-        const fontSize = 16;
-        const columns = canvas.width / fontSize;
-
-        const rainDrops: number[] = [];
-
-        for (let x = 0; x < columns; x++) {
-            rainDrops[x] = Math.random() * canvas.height;
-        }
+        const chars = katakana + latin + nums;
 
         const draw = () => {
-            // Semi-transparent black to create fade effect
+            // Semi-transparent black to create trail effect
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, width, height);
 
-            // Matrix green color
-            ctx.fillStyle = '#0F0';
-            ctx.font = fontSize + 'px monospace';
+            ctx.fillStyle = '#22d3ee'; // Cyan base
+            ctx.font = '15px monospace';
 
-            for (let i = 0; i < rainDrops.length; i++) {
-                // Random character
-                const text = alphabet.charAt(
-                    Math.floor(Math.random() * alphabet.length)
-                );
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars.charAt(Math.floor(Math.random() * chars.length));
 
-                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+                // Randomly vary brightness slightly for depth
+                const isBright = Math.random() > 0.95;
+                ctx.fillStyle = isBright ? '#FFFFFF' : '#22d3ee'; // White or Cyan
 
-                // Reset drop randomly or when it reaches bottom
-                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-                    rainDrops[i] = 0;
+                ctx.fillText(text, i * 20, drops[i] * 20);
+
+                if (drops[i] * 20 > height && Math.random() > 0.975) {
+                    drops[i] = 0;
                 }
-
-                rainDrops[i]++;
+                drops[i]++;
             }
         };
 
-        const interval = setInterval(draw, 30);
+        const interval = setInterval(draw, 50);
 
-        // Handle resize
         const handleResize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            // Recalculate columns if needed, but existing drops array might be okay if we just add/remove
         };
 
         window.addEventListener('resize', handleResize);
@@ -76,8 +72,8 @@ export default function MatrixRain() {
     return (
         <canvas
             ref={canvasRef}
-            className="fixed top-0 left-0 w-full h-full -z-10 bg-black"
-            style={{ opacity: 0.7 }}
+            className="fixed top-0 left-0 w-full h-full -z-10 opacity-30"
+            style={{ pointerEvents: 'none' }}
         />
     );
 }

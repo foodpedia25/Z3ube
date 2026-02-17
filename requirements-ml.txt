@@ -1,0 +1,6 @@
+
+# Optional ML dependencies for local development
+# Install with: pip install -r requirements-ml.txt
+
+sentence-transformers>=2.2.2
+numpy>=1.26.0

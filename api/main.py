@@ -85,7 +85,7 @@ async def chat(request: ChatRequest):
     try:
         # Use reasoning engine for response with auto-healing
         async def generate_response():
-            result = await reasoning_engine.reason(request.message, depth="quick")
+            result = await reasoning_engine.reason(request.message, depth=request.depth, model=request.model)
             return result
         
         result = await auto_healer.detect_and_heal(
@@ -110,6 +110,21 @@ async def chat(request: ChatRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    Stream conversational response with thinking steps
+    """
+    async def event_generator():
+        try:
+            async for chunk in reasoning_engine.reason_stream(request.message, depth=request.depth, model=request.model):
+                yield chunk
+        except Exception as e:
+            yield json.dumps({"type": "error", "data": str(e)}) + "\n"
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
 
 @app.post("/think", response_model=ThinkResponse)
