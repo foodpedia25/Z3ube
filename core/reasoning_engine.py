@@ -76,6 +76,10 @@ class ReasoningEngine:
         # Initialize Ollama (local LLM)
         self.use_ollama = os.getenv("USE_OLLAMA", "false").lower() == "true"
         self.ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+        
+        # Configure Gemini
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        
         if self.use_ollama:
             try:
                 self.ollama_client = ChatOllama(
@@ -198,14 +202,19 @@ Provide a detailed execution plan with specific steps."""
         for i in range(num_steps):
             prompt = self._build_step_prompt(query, plan, steps, i + 1)
             
-            # Alternate between models for diverse perspectives
-            # If Ollama enabled, use it every 3rd step for local processing
-            if self.use_ollama and i % 3 == 0:
-                thought, reasoning, confidence = await self._reason_with_ollama(prompt)
-            elif i % 2 == 0:
+            # Rotate between models for diverse perspectives
+            # Pattern: Ollama (if enabled) -> OpenAI -> Anthropic -> Gemini
+            
+            model_index = i % 4 if self.use_ollama else i % 3
+            
+            if self.use_ollama and model_index == 0:
+                 thought, reasoning, confidence = await self._reason_with_ollama(prompt)
+            elif (self.use_ollama and model_index == 1) or (not self.use_ollama and model_index == 0):
                 thought, reasoning, confidence = await self._reason_with_openai(prompt)
-            else:
+            elif (self.use_ollama and model_index == 2) or (not self.use_ollama and model_index == 1):
                 thought, reasoning, confidence = await self._reason_with_anthropic(prompt)
+            else:
+                thought, reasoning, confidence = await self._reason_with_gemini(prompt)
             
             step = ThoughtStep(
                 step_number=i + 1,
@@ -305,6 +314,31 @@ Focus on moving toward a solution."""
             return thought, reasoning, 0.90  # High confidence for local model
         except Exception as e:
             print(f"⚠️ Ollama reasoning failed: {e}, falling back to OpenAI")
+            return await self._reason_with_openai(prompt)
+
+    async def _reason_with_gemini(self, prompt: str) -> tuple[str, str, float]:
+        """Perform reasoning using Google's Gemini model"""
+        try:
+            model = genai.GenerativeModel(self.gemini_model)
+            
+            # Simple prompt wrapper for Gemini
+            gemini_prompt = f"System: You are a brilliant reasoning engine. Think step by step.\n\nUser: {prompt}"
+            
+            # Use run_in_executor for async wrapper if needed, but generate_content_async is better if available
+            # Current library version might support async directly
+            response = await model.generate_content_async(gemini_prompt)
+            
+            content = response.text
+            
+            # Parse thought and reasoning
+            lines = content.split('\n')
+            thought = lines[0] if lines else content[:100]
+            reasoning = '\n'.join(lines[1:]) if len(lines) > 1 else content
+            
+            return thought, reasoning, 0.88
+            
+        except Exception as e:
+            print(f"⚠️ Gemini reasoning failed: {e}, falling back to OpenAI")
             return await self._reason_with_openai(prompt)
     
     async def _synthesize_conclusion(
