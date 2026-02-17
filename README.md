@@ -65,8 +65,8 @@ cd Z3ube
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (Use local requirements for full features)
+pip install -r requirements-local.txt
 ```
 
 ### 3. Configure Environment

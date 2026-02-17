@@ -9,6 +9,8 @@ This guide explains how to deploy the Z3ube application to Vercel.
 > Vercel functions have size limits (max 50MB-250MB) and cannot host the 2GB+ Llama model files or the Ollama runtime.
 > 
 > **On Vercel, Z3ube will automatically run in Cloud-Only mode**, using OpenAI, Anthropic, and Gemini. The local processing steps will be skipped or handled by cloud fallbacks.
+>
+> **Note:** The repository includes a `requirements.txt` optimized for Vercel (lightweight) and a `requirements-local.txt` for full local functionality.
 
 ## 🚀 Deployment Steps
 

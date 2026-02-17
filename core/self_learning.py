@@ -16,8 +16,21 @@ from datetime import datetime
 from collections import defaultdict
 import asyncio
 
-from sentence_transformers import SentenceTransformer
-import numpy as np
+import asyncio
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Conditional imports for heavy libraries
+try:
+    from sentence_transformers import SentenceTransformer
+    import numpy as np
+    HAS_ML_DEPS = True
+except ImportError:
+    HAS_ML_DEPS = False
+    logger.warning("⚠️ Heavy ML dependencies (sentence-transformers, numpy) not found. Self-learning disabled.")
+
 
 
 @dataclass
@@ -75,7 +88,16 @@ class SelfLearningSystem:
         os.makedirs(storage_path, exist_ok=True)
         
         # Embedding model for similarity comparisons
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        if HAS_ML_DEPS:
+            try:
+                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            except Exception as e:
+                logger.error(f"Failed to load SentenceTransformer: {e}")
+                self.embedding_model = None
+                global HAS_ML_DEPS
+                HAS_ML_DEPS = False
+        else:
+            self.embedding_model = None
         
         # Storage
         self.interactions: List[Interaction] = []
@@ -118,7 +140,12 @@ class SelfLearningSystem:
         interaction_id = f"int_{len(self.interactions)}_{int(datetime.now().timestamp())}"
         
         # Generate embedding for similarity search
-        embedding = self.embedding_model.encode(query)
+        embedding = None
+        if HAS_ML_DEPS and self.embedding_model:
+            try:
+                embedding = self.embedding_model.encode(query)
+            except Exception as e:
+                logger.warning(f"Failed to generate embedding: {e}")
         
         interaction = Interaction(
             id=interaction_id,
@@ -163,7 +190,7 @@ class SelfLearningSystem:
         Returns:
             List of similar interactions
         """
-        if not self.interactions:
+        if not self.interactions or not HAS_ML_DEPS or not self.embedding_model:
             return []
         
         # Generate embedding for query
@@ -348,7 +375,8 @@ class SelfLearningSystem:
                             tags=data.get("tags", [])
                         )
                         # Regenerate embedding
-                        interaction.embedding = self.embedding_model.encode(interaction.query)
+                        if HAS_ML_DEPS and self.embedding_model:
+                            interaction.embedding = self.embedding_model.encode(interaction.query)
                         self.interactions.append(interaction)
                 except Exception as e:
                     print(f"Error loading interaction {filename}: {e}")
