@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --foreground-rgb: 0, 255, 65;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 13, 2, 8;
+}
+
+body {
+    color: rgb(var(--foreground-rgb));
+    background: linear-gradient(to bottom,
+            transparent,
+            rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+    min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0d0208;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #00ff41;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #00d935;
+}
+
+/* Glowing text effect */
+.glow-text {
+    text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41, 0 0 30px #00ff41;
+}
+
+/* Neon border */
+.neon-border {
+    box-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41, 0 0 15px #00ff41, 0 0 20px #00ff41;
+}
+
+/* Glassmorphism */
+.glass {
+    background: rgba(0, 255, 65, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 255, 65, 0.2);
+}
+
+/* Hover glow effect */
+.hover-glow:hover {
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+    transition: box-shadow 0.3s ease-in-out;
+}
