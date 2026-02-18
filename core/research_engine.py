@@ -209,20 +209,24 @@ Focus on comprehensive understanding of the topic."""
         research_plan: Dict[str, Any],
         max_sources: int
     ) -> List[Source]:
-        """Gather information from multiple sources"""
+        """Gather information from multiple sources in parallel"""
         sources = []
         
-        # For this implementation, we'll use AI to simulate research
-        # In production, you'd integrate with real search APIs (Google, Bing, etc.)
-        
+        # Create tasks for parallel execution
+        tasks = []
         for i, question in enumerate(research_plan["questions"][:max_sources]):
-            try:
-                source = await self._research_question(topic, question, i)
-                if source:
-                    sources.append(source)
-            except Exception as e:
-                print(f"Error researching question: {e}")
+            tasks.append(self._research_question(topic, question, i))
+            
+        # Execute all research tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        for result in results:
+            if isinstance(result, Exception):
+                print(f"Error in parallel research task: {result}")
                 continue
+            if result:
+                sources.append(result)
         
         return sources
     
