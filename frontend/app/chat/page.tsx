@@ -294,6 +294,7 @@ export default function ChatPage() {
                                     >
                                         <option value="auto">Auto (CoT)</option>
                                         <option value="gemini">Gemini 3 Flash</option>
+                                        <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
                                         <option value="openai">OpenAI (Legacy)</option>
                                         <option value="llama">Llama (Local)</option>
                                     </select>
