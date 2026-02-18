@@ -143,6 +143,28 @@ class ReasoningEngine:
         if self.mock_llm:
             return await self._mock_reason(query, depth)
 
+        # Optimization: Short-circuit for simple greetings or very short queries
+        # This prevents unnecessary "Decomposition" of "hello" into 12 sub-problems
+        simple_queries = ["hello", "hi", "hey", "greetings", "ping", "test"]
+        is_simple = query.lower().strip().strip('!.?') in simple_queries or len(query.split()) < 2
+        
+        if is_simple and depth != "deep":
+            try:
+                # Direct response for simple queries
+                prompt = f"User says: {query}\nProvide a friendly, direct, and concise response without complex reasoning."
+                response_text = await self._query_gemini(prompt)
+                
+                return ReasoningResult(
+                    query=query,
+                    steps=[ThoughtStep(1, "Direct response for simple query", "Query was identified as simple/greeting, skipping deep reasoning chain.", 1.0)],
+                    conclusion=response_text,
+                    confidence=1.0,
+                    execution_time=0.1
+                )
+            except Exception:
+                # Fallback to normal flow if direct query fails
+                pass
+
         start_time = datetime.now()
         
         # Step 1: Decompose the problem
@@ -497,6 +519,35 @@ Final Conclusion: [validated conclusion]"""
             async for chunk in self._mock_reason_stream(query, depth):
                 yield chunk
             return
+
+        # Optimization: Short-circuit for simple greetings
+        simple_queries = ["hello", "hi", "hey", "greetings", "ping", "test"]
+        is_simple = query.lower().strip().strip('!.?') in simple_queries or len(query.split()) < 2
+        
+        if is_simple and depth != "deep":
+            yield json.dumps({"type": "thought", "data": "Identified simple query. Responding directly..."}) + "\n"
+            try:
+                # Direct streaming response for simple queries
+                prompt = f"User says: {query}\nProvide a friendly, direct, and concise response."
+                
+                # Stream the content directly
+                # We need to use the generative model's stream feature if available, or just mock stream
+                if self.gemini_client:
+                     # Use synchronous stream in thread
+                    def stream_gemini():
+                        return self.gemini_client.models.generate_content_stream(
+                            model=self.gemini_model,
+                            contents=prompt
+                        )
+                    
+                    stream = await asyncio.to_thread(stream_gemini)
+                    
+                    for chunk in stream:
+                        if chunk.text:
+                             yield json.dumps({"type": "content", "data": chunk.text}) + "\n"
+                    return
+            except Exception as e:
+                 print(f"Direct stream failed: {e}, falling back to deep reasoning")
 
         # Step 1: Decompose
         yield json.dumps({"type": "thought", "data": "Analyzing request..."}) + "\n"
