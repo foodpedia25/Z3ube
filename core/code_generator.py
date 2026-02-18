@@ -13,6 +13,10 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
@@ -61,15 +65,32 @@ class CodeGenerator:
     """
     
     def __init__(self):
-        self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.anthropic_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        
+        try:
+            from google import genai
+            self.gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+            self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+            print("✅ Gemini Client initialized in CodeGenerator")
+        except Exception as e:
+            print(f"⚠️ CodeGenerator Gemini Client initialization failed: {e}")
+            self.gemini_client = None
+            
         # Code generation templates for robotics
         self.robotics_templates = {
             "ros2_python": self._get_ros2_python_template(),
             "ros2_cpp": self._get_ros2_cpp_template(),
             "arduino": self._get_arduino_template()
         }
+
+    async def _query_gemini(self, prompt: str) -> str:
+        """Helper to query Gemini model"""
+        if not self.gemini_client:
+             raise Exception("Gemini client not initialized")
+            
+        response = self.gemini_client.models.generate_content(
+            model=self.gemini_model,
+            contents=prompt
+        )
+        return response.text
     
     async def generate_code(
         self,
@@ -131,16 +152,11 @@ Requirements:
 
 Provide ONLY the code, with comments explaining key parts."""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": f"You are an expert {language} developer. Generate production-quality code."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2
-        )
-        
-        code = response.choices[0].message.content
+        try:
+            code = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini code generation failed: {e}")
+            code = f"# Error generating {language} code: {e}"
         
         # Extract code from markdown if present
         code = self._extract_code_from_markdown(code)
@@ -184,15 +200,11 @@ Requirements for robotics code:
 
 Provide complete, production-ready robotics code."""
 
-        response = await self.anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=3000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        code = response.content[0].text
+        try:
+            code = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini robotics generation failed: {e}")
+            code = f"# Error generating robotics code: {e}"
         code = self._extract_code_from_markdown(code)
         
         explanation = await self._explain_code(code, language, description)
@@ -240,16 +252,11 @@ Generate tests that cover:
 
 Provide complete test code."""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": f"You are an expert at writing tests in {language}."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2
-        )
-        
-        tests = response.choices[0].message.content
+        try:
+            tests = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini test generation failed: {e}")
+            tests = "# Tests unavailable"
         return self._extract_code_from_markdown(tests)
     
     async def _optimize_code(self, code: str, language: str) -> str:
@@ -267,15 +274,11 @@ Original code:
 
 Provide optimized version with same functionality."""
 
-        response = await self.anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=3000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        optimized = response.content[0].text
+        try:
+            optimized = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini optimization failed: {e}")
+            optimized = code
         return self._extract_code_from_markdown(optimized)
     
     async def _analyze_quality(self, code: str, language: str) -> float:
@@ -295,18 +298,17 @@ Consider:
 
 Provide only a numeric score between 0.0 and 1.0."""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a code quality expert."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.1
-        )
-        
         try:
-            score_text = response.choices[0].message.content.strip()
-            score = float(score_text)
+            score_text = await self._query_gemini(prompt)
+            
+            score_text = score_text.strip()
+            # Try to find a float in the text if it's not just a number
+            import re
+            match = re.search(r"0\.\d+|1\.0", score_text)
+            if match:
+                 score = float(match.group())
+            else:
+                 score = float(score_text)
             return max(0.0, min(1.0, score))
         except:
             return 0.7  # Default score
@@ -329,16 +331,10 @@ Code:
 
 Provide a clear explanation of the approach, key algorithms, and how it meets the requirements."""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert at explaining code clearly."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        
-        return response.choices[0].message.content
+        try:
+             return await self._query_gemini(prompt)
+        except Exception as e:
+             return f"Explanation unavailable: {e}"
     
     async def _identify_dependencies(
         self,

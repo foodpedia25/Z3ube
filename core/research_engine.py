@@ -13,6 +13,10 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 import asyncio
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
@@ -66,12 +70,31 @@ class ResearchEngine:
     """
     
     def __init__(self):
-        self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.anthropic_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         self.http_client = httpx.AsyncClient(timeout=30.0)
         
+        try:
+            from google import genai
+            self.gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+            self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+            print("✅ Gemini Client initialized in ResearchEngine")
+        except Exception as e:
+            print(f"⚠️ ResearchEngine Gemini Client initialization failed: {e}")
+            self.gemini_client = None
+
         # Research cache
         self.research_cache: Dict[str, ResearchResult] = {}
+
+    async def _query_gemini(self, prompt: str) -> str:
+        """Helper to query Gemini model"""
+        if not self.gemini_client:
+             # Fallback or error
+             raise Exception("Gemini client not initialized")
+            
+        response = self.gemini_client.models.generate_content(
+            model=self.gemini_model,
+            contents=prompt
+        )
+        return response.text
     
     async def conduct_research(
         self,
@@ -140,16 +163,16 @@ class ResearchEngine:
 Generate {num_questions} specific research questions that need to be answered.
 Focus on comprehensive understanding of the topic."""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a research planning expert."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.4
-        )
-        
-        questions_text = response.choices[0].message.content
+        prompt = f"""Create a research plan for this topic: {topic}
+
+Generate {num_questions} specific research questions that need to be answered.
+Focus on comprehensive understanding of the topic."""
+
+        try:
+             questions_text = await self._query_gemini(prompt)
+        except Exception as e:
+             print(f"Gemini research planning failed: {e}")
+             questions_text = f"1. {topic} overview\n2. Key features of {topic}\n3. Recent developments in {topic}"
         questions = [
             line.strip() 
             for line in questions_text.split('\n') 
@@ -199,15 +222,7 @@ Provide comprehensive information with specific details, data, and examples.
 Include any relevant technical information, statistics, or recent developments."""
 
         try:
-            response = await self.anthropic_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=2000,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            
-            content = response.content[0].text
+            content = await self._query_gemini(prompt)
             
             return Source(
                 url=f"research_synthesis_{index}",
@@ -240,16 +255,11 @@ Create a comprehensive synthesis that:
 3. Highlights important insights
 4. Notes any contradictions or gaps"""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert research synthesizer."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        
-        return response.choices[0].message.content
+        try:
+            return await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini synthesis failed: {e}")
+            return "Synthesis unavailable due to error."
     
     async def _extract_key_findings(self, synthesis: str) -> List[str]:
         """Extract key findings from synthesis"""
@@ -259,15 +269,11 @@ Create a comprehensive synthesis that:
 
 Provide 5-7 bullet points of the most important findings."""
 
-        response = await self.anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        findings_text = response.content[0].text
+        try:
+             findings_text = await self._query_gemini(prompt)
+        except Exception as e:
+             print(f"Gemini extraction failed: {e}")
+             return []
         findings = [
             line.strip().lstrip('-•*').strip()
             for line in findings_text.split('\n')
@@ -298,16 +304,11 @@ Full Synthesis:
 
 Provide a clear, accessible summary (2-3 paragraphs) that captures the essence of the research."""
 
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert at creating clear research summaries."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.4
-        )
-        
-        return response.choices[0].message.content
+        try:
+            return await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini summary failed: {e}")
+            return "Summary unavailable due to error."
     
     async def close(self):
         """Close HTTP client"""

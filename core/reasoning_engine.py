@@ -103,6 +103,26 @@ class ReasoningEngine:
         self.short_term_memory: List[Dict[str, Any]] = []
         self.long_term_memory: List[Dict[str, Any]] = []
         
+        # Initialize Gemini Client
+        try:
+            from google import genai
+            self.gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+            print("✅ Gemini Client initialized")
+        except Exception as e:
+            print(f"⚠️ Gemini Client initialization failed: {e}")
+            self.gemini_client = None
+
+    async def _query_gemini(self, prompt: str) -> str:
+        """Helper to query Gemini model"""
+        if not self.gemini_client:
+            raise Exception("Gemini client not initialized")
+            
+        response = self.gemini_client.models.generate_content(
+            model=self.gemini_model,
+            contents=prompt
+        )
+        return response.text
+        
     async def reason(self, query: str, depth: str = "deep", model: str = "auto") -> ReasoningResult:
         """
         Main reasoning method using chain-of-thought
@@ -157,17 +177,14 @@ Problem: {query}
 
 Provide a numbered list of sub-problems that need to be addressed to solve this."""
 
-        response = await self.openai_client.chat.completions.create(
-            model=self.openai_model,
-            messages=[
-                {"role": "system", "content": "You are an expert problem decomposition specialist."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        
+        try:
+            decomposition_text = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini decomposition failed: {e}, using fallback")
+            # Fallback Logic (Mock or simplified)
+            decomposition_text = "1. Analyze the request\n2. Formulate a response"
+
         # Parse decomposition
-        decomposition_text = response.choices[0].message.content
         sub_problems = [line.strip() for line in decomposition_text.split('\n') 
                        if line.strip() and any(char.isdigit() for char in line[:3])]
         
@@ -184,16 +201,12 @@ Sub-problems identified:
 
 Provide a detailed execution plan with specific steps."""
 
-        response = await self.anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=2000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        plan_text = response.content[0].text
-        
+        try:
+            plan_text = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini planning failed: {e}")
+            plan_text = "Step 1: Analyze input\nStep 2: Generate response"
+
         return {
             "steps": plan_text.split('\n'),
             "sub_problems": decomposition
@@ -237,11 +250,8 @@ Provide a detailed execution plan with specific steps."""
                 
                 if self.use_ollama and model_index == 0:
                      thought, reasoning, confidence = await self._reason_with_ollama(prompt)
-                elif (self.use_ollama and model_index == 1) or (not self.use_ollama and model_index == 0):
-                    thought, reasoning, confidence = await self._reason_with_openai(prompt)
-                elif (self.use_ollama and model_index == 2) or (not self.use_ollama and model_index == 1):
-                    thought, reasoning, confidence = await self._reason_with_anthropic(prompt)
                 else:
+                    # Default to Gemini for all other steps in auto mode
                     thought, reasoning, confidence = await self._reason_with_gemini(prompt)
             
             step = ThoughtStep(
@@ -394,16 +404,11 @@ Reasoning chain:
 
 Synthesize these steps into a comprehensive answer."""
 
-        response = await self.openai_client.chat.completions.create(
-            model=self.openai_model,
-            messages=[
-                {"role": "system", "content": "You are an expert at synthesizing conclusions from reasoning chains."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        
-        return response.choices[0].message.content
+        try:
+            return await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini synthesis failed: {e}")
+            return "Unable to synthesize conclusion due to error."
     
     async def _reflect_and_validate(
         self,
@@ -429,15 +434,11 @@ Format:
 Confidence: [0.0-1.0]
 Final Conclusion: [validated conclusion]"""
 
-        response = await self.anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        content = response.content[0].text
+        try:
+            content = await self._query_gemini(prompt)
+        except Exception as e:
+            print(f"Gemini reflection failed: {e}")
+            content = "Confidence: 0.8\nFinal Conclusion: " + conclusion
         
         # Parse confidence and conclusion
         confidence = 0.8  # Default
@@ -535,8 +536,8 @@ Final Conclusion: [validated conclusion]"""
                 else:
                     thought, reasoning, confidence = await self._reason_with_openai(prompt)
             else:
-                 # Use OpenAI for auto mode (simplified for streaming demo stability)
-                 thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                 # Use Gemini for auto mode
+                 thought, reasoning, confidence = await self._reason_with_gemini(prompt)
             
             step = ThoughtStep(i + 1, thought, reasoning, confidence)
             steps.append(step)
@@ -560,20 +561,19 @@ Reasoning chain:
 {steps_summary}
 Synthesize these steps into a comprehensive answer."""
 
-        # Stream the final conclusion
-        stream = await self.openai_client.chat.completions.create(
-            model=self.openai_model,
-            messages=[
-                {"role": "system", "content": "You are an expert at synthesizing conclusions."},
-                {"role": "user", "content": prompt}
-            ],
-            stream=True,
-            temperature=0.3
-        )
-        
-        async for chunk in stream:
-            if chunk.choices[0].delta.content:
-                yield json.dumps({"type": "content", "data": chunk.choices[0].delta.content}) + "\n"
+        # Stream the final conclusion via Gemini
+        try:
+            stream = self.gemini_client.models.generate_content_stream(
+                model=self.gemini_model,
+                contents=prompt
+            )
+            
+            for chunk in stream:
+                if chunk.text:
+                    yield json.dumps({"type": "content", "data": chunk.text}) + "\n"
+        except Exception as e:
+            print(f"Gemini streaming failed: {e}")
+            yield json.dumps({"type": "error", "data": f"Streaming failed: {str(e)}"}) + "\n"
 
     async def _mock_reason(self, query: str, depth: str) -> ReasoningResult:
         """Mock reasoning for testing"""
