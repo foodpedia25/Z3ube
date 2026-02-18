@@ -90,11 +90,17 @@ class ResearchEngine:
              # Fallback or error
              raise Exception("Gemini client not initialized")
             
-        response = self.gemini_client.models.generate_content(
-            model=self.gemini_model,
-            contents=prompt
-        )
-        return response.text
+        try:
+            # Run synchronous Gemini call in thread
+            response = await asyncio.to_thread(
+                self.gemini_client.models.generate_content,
+                model=self.gemini_model,
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            print(f"Gemini query failed: {e}")
+            raise e
     
     async def conduct_research(
         self,
@@ -121,38 +127,51 @@ class ResearchEngine:
             cached = self.research_cache[cache_key]
             # Return cache if less than 1 hour old
             if (datetime.now() - cached.sources[0].timestamp).total_seconds() < 3600:
+                print(f"Returning cached research for {topic}")
                 return cached
         
-        # Step 1: Generate research plan
-        research_plan = await self._create_research_plan(topic, depth)
-        
-        # Step 2: Gather information from multiple sources
-        sources = await self._gather_sources(topic, research_plan, max_sources)
-        
-        # Step 3: Analyze and synthesize information
-        synthesis = await self._synthesize_findings(topic, sources)
-        
-        # Step 4: Extract key findings
-        key_findings = await self._extract_key_findings(synthesis)
-        
-        # Step 5: Generate summary
-        summary = await self._generate_summary(topic, synthesis, key_findings)
-        
-        research_time = (datetime.now() - start_time).total_seconds()
-        
-        result = ResearchResult(
-            topic=topic,
-            summary=summary,
-            key_findings=key_findings,
-            sources=sources,
-            confidence=0.85,
-            research_time=research_time
-        )
-        
-        # Cache result
-        self.research_cache[cache_key] = result
-        
-        return result
+        try:
+            # Step 1: Generate research plan
+            research_plan = await self._create_research_plan(topic, depth)
+            
+            # Step 2: Gather information from multiple sources
+            sources = await self._gather_sources(topic, research_plan, max_sources)
+            
+            # Step 3: Analyze and synthesize information
+            synthesis = await self._synthesize_findings(topic, sources)
+            
+            # Step 4: Extract key findings
+            key_findings = await self._extract_key_findings(synthesis)
+            
+            # Step 5: Generate summary
+            summary = await self._generate_summary(topic, synthesis, key_findings)
+            
+            research_time = (datetime.now() - start_time).total_seconds()
+            
+            result = ResearchResult(
+                topic=topic,
+                summary=summary,
+                key_findings=key_findings,
+                sources=sources,
+                confidence=0.85,
+                research_time=research_time
+            )
+            
+            # Cache result
+            self.research_cache[cache_key] = result
+            
+            return result
+        except Exception as e:
+            print(f"Research failed: {e}")
+            # Return a partial result indicating failure instead of crashing
+            return ResearchResult(
+                topic=topic,
+                summary=f"Research could not be completed effectively due to an error: {str(e)}",
+                key_findings=["Error accessing research tools"],
+                sources=[],
+                confidence=0.0,
+                research_time=(datetime.now() - start_time).total_seconds()
+            )
     
     async def _create_research_plan(self, topic: str, depth: str) -> Dict[str, Any]:
         """Create a research plan"""
