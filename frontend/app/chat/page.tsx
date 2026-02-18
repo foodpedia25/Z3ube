@@ -46,7 +46,8 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, assistantMessage]);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            // Determine API URL based on environment
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000');
             const response = await fetch(`${apiUrl}/chat/stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -119,7 +120,8 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, { role: 'user', content: `Researching: ${input}` }]);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            // Determine API URL based on environment
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000');
             const response = await fetch(`${apiUrl}/research`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
