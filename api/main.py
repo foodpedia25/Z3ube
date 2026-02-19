@@ -292,6 +292,22 @@ async def get_patterns():
     }
 
 
+@app.post("/code/project")
+async def generate_project(request: CodeRequest):
+    """
+    Generate a full project structure
+    """
+    try:
+        files = await code_generator.generate_project_structure(
+            description=request.description,
+            project_type=request.language # reusing language field for project type
+        )
+        return {"files": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @app.get("/system/status")
 async def system_status():
     """

@@ -400,6 +400,49 @@ from rclpy.node import Node
 // Implement QoS settings
         """
     
+    async def generate_project_structure(
+        self,
+        description: str,
+        project_type: str = "ros2"
+    ) -> Dict[str, str]:
+        """Generate a complete project structure"""
+        prompt = f"""Generate a complete {project_type} project structure for the following requirement:
+
+{description}
+
+Requirements:
+1. Return a VALID JSON object where keys are filenames (including relative paths) and values are the full file content.
+2. Include all necessary configuration files (e.g., package.xml, CMakeLists.txt for ROS2; platformio.ini for Arduino).
+3. Ensure code compiles/runs.
+4. Do not include markdown formatting (```json) around the output, just raw JSON string if possible, or I will parse it.
+
+Output format:
+{{
+    "src/main.cpp": "...",
+    "CMakeLists.txt": "...",
+    "package.xml": "..."
+}}
+"""
+        try:
+             response_text = await self._query_gemini(prompt)
+             # Clean up markdown if present
+             cleaned_text = self._extract_code_from_markdown(response_text)
+             # If extract_code returns the same text (no blocks), it might still be raw JSON or wrapped
+             if cleaned_text.strip().startswith("```"):
+                 cleaned_text = cleaned_text.split("```")[1]
+                 if cleaned_text.startswith("json"):
+                     cleaned_text = cleaned_text[4:]
+             
+             import json
+             project_files = json.loads(cleaned_text)
+             return project_files
+        except Exception as e:
+            print(f"Project generation failed: {e}")
+            return {
+                "error.txt": f"Failed to generate project: {str(e)}",
+                "README.md": f"# Generation Error\n\nCould not generate project for: {description}"
+            }
+
     def _get_arduino_template(self) -> str:
         """Get Arduino template"""
         return """
