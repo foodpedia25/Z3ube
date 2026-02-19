@@ -24,6 +24,8 @@ from anthropic import AsyncAnthropic
 
 from langchain_ollama import ChatOllama
 
+from core.self_learning import learning_system
+
 
 @dataclass
 class ThoughtStep:
