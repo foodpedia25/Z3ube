@@ -332,6 +332,14 @@ async def system_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/knowledge/graph")
+async def get_knowledge_graph():
+    """
+    Get knowledge graph data
+    """
+    return knowledge_graph.get_graph_data()
+
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
@@ -344,10 +352,40 @@ async def startup_event():
     print("🔧 Auto-healer active")
     print("📈 Self-learning enabled")
     
-    # Add some initial knowledge to graph
-    knowledge_graph.add_concept("Z3ube", {"type": "ai_agent", "capabilities": "reasoning, research, code"})
-    knowledge_graph.add_concept("Reasoning", {"type": "capability", "method": "chain-of-thought"})
-    knowledge_graph.add_relationship("Z3ube", "Reasoning", "has_capability")
+    # improved seed data for knowledge graph
+    concepts = [
+        ("Z3ube", {"type": "system", "importance": 1.0}),
+        ("AI", {"type": "concept", "importance": 0.9}),
+        ("Reasoning", {"type": "module", "importance": 0.8}),
+        ("Learning", {"type": "module", "importance": 0.8}),
+        ("Robotics", {"type": "domain", "importance": 0.7}),
+        ("Code", {"type": "skill", "importance": 0.7}),
+        ("Python", {"type": "language", "importance": 0.6}),
+        ("ROS2", {"type": "framework", "importance": 0.6}),
+        ("Gemini", {"type": "model", "importance": 0.8}),
+        ("Auto-Healing", {"type": "module", "importance": 0.7})
+    ]
+    
+    for concept, attrs in concepts:
+        knowledge_graph.add_concept(concept, attrs)
+        
+    relationships = [
+        ("Z3ube", "AI", "is_a"),
+        ("Z3ube", "Reasoning", "has_module"),
+        ("Z3ube", "Learning", "has_module"),
+        ("Z3ube", "Robotics", "supports"),
+        ("Z3ube", "Code", "generates"),
+        ("Code", "Python", "supports"),
+        ("Robotics", "ROS2", "uses"),
+        ("Reasoning", "Gemini", "uses"),
+        ("Z3ube", "Auto-Healing", "has_module"),
+        ("AI", "Python", "implemented_in")
+    ]
+    
+    for source, target, rel in relationships:
+        knowledge_graph.add_relationship(source, target, rel)
+        
+    print(f"✅ Knowledge Graph initialized with {len(concepts)} nodes")
 
 
 # Shutdown event
