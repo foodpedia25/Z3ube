@@ -167,14 +167,19 @@ class ReasoningEngine:
 
         start_time = datetime.now()
         
+        # Step 0: Retrieve learned memories/suggestions
+        memories = learning_system.get_improvement_suggestions(query)
+        if memories:
+             print(f"🧠 Retrieved {len(memories)} memories for context")
+
         # Step 1: Decompose the problem
-        decomposition = await self._decompose_problem(query)
+        decomposition = await self._decompose_problem(query, memories)
         
         # Step 2: Plan the approach
-        plan = await self._create_plan(query, decomposition)
+        plan = await self._create_plan(query, decomposition, memories)
         
         # Step 3: Execute reasoning steps
-        steps = await self._execute_reasoning_chain(query, plan, depth, model)
+        steps = await self._execute_reasoning_chain(query, plan, depth, model, memories)
         
         # Step 4: Synthesize conclusion
         conclusion = await self._synthesize_conclusion(query, steps)
@@ -197,13 +202,16 @@ class ReasoningEngine:
             execution_time=execution_time
         )
     
-    async def _decompose_problem(self, query: str) -> List[str]:
+    async def _decompose_problem(self, query: str, memories: List[str] = None) -> List[str]:
         """Break down complex problem into sub-problems"""
         prompt = f"""Decompose this problem into logical sub-problems:
 
 Problem: {query}
 
-Provide a numbered list of sub-problems that need to be addressed to solve this."""
+Provide a numbered list of sub-problems that need to be addressed to solve this.
+
+Memories from past interactions:
+{chr(10).join(memories) if memories else "None"}"""
 
         try:
             decomposition_text = await self._query_gemini(prompt)
@@ -218,7 +226,7 @@ Provide a numbered list of sub-problems that need to be addressed to solve this.
         
         return sub_problems
     
-    async def _create_plan(self, query: str, decomposition: List[str]) -> Dict[str, Any]:
+    async def _create_plan(self, query: str, decomposition: List[str], memories: List[str] = None) -> Dict[str, Any]:
         """Create execution plan based on problem decomposition"""
         prompt = f"""Create a step-by-step plan to solve this problem:
 
@@ -227,7 +235,10 @@ Problem: {query}
 Sub-problems identified:
 {chr(10).join(decomposition)}
 
-Provide a detailed execution plan with specific steps."""
+Provide a detailed execution plan with specific steps.
+
+Consider these past lessons:
+{chr(10).join(memories) if memories else "None"}"""
 
         try:
             plan_text = await self._query_gemini(prompt)
@@ -245,14 +256,15 @@ Provide a detailed execution plan with specific steps."""
         query: str, 
         plan: Dict[str, Any],
         depth: str,
-        model: str = "auto"
+        model: str = "auto",
+        memories: List[str] = None
     ) -> List[ThoughtStep]:
         """Execute the reasoning chain step by step with optional model enforcement"""
         steps = []
         num_steps = 3 if depth == "quick" else 5 if depth == "normal" else 8
         
         for i in range(num_steps):
-            prompt = self._build_step_prompt(query, plan, steps, i + 1)
+            prompt = self._build_step_prompt(query, plan, steps, i + 1, memories)
             
             # Determine which model to use
             if model != "auto":
@@ -297,7 +309,8 @@ Provide a detailed execution plan with specific steps."""
         query: str,
         plan: Dict[str, Any],
         previous_steps: List[ThoughtStep],
-        step_number: int
+        step_number: int,
+        memories: List[str] = None
     ) -> str:
         """Build prompt for current reasoning step"""
         previous_thoughts = "\n".join([
@@ -315,7 +328,10 @@ Previous reasoning steps:
 
 Current step {step_number}:
 Provide your next logical thought and detailed reasoning for this step.
-Focus on moving toward a solution."""
+Focus on moving toward a solution.
+
+Relevant past learnings:
+{chr(10).join(memories) if memories else "None"}"""
     
     async def _reason_with_openai(self, prompt: str) -> tuple[str, str, float]:
         """Perform reasoning using OpenAI's model"""
@@ -551,11 +567,17 @@ Final Conclusion: [validated conclusion]"""
 
         # Step 1: Decompose
         yield json.dumps({"type": "thought", "data": "Analyzing request..."}) + "\n"
-        decomposition = await self._decompose_problem(query)
+        
+        # Retrieve memories
+        memories = learning_system.get_improvement_suggestions(query)
+        if memories:
+             yield json.dumps({"type": "thought", "data": f"Recall: Found {len(memories)} relevant past lessons"}) + "\n"
+
+        decomposition = await self._decompose_problem(query, memories)
         yield json.dumps({"type": "thought", "data": f"Decomposed into {len(decomposition)} sub-problems"}) + "\n"
         
         # Step 2: Plan
-        plan = await self._create_plan(query, decomposition)
+        plan = await self._create_plan(query, decomposition, memories)
         yield json.dumps({"type": "thought", "data": "Plan created. Executing reasoning chain..."}) + "\n"
         
         # Step 3: Execute (Streaming)
@@ -565,7 +587,7 @@ Final Conclusion: [validated conclusion]"""
         for i in range(num_steps):
             yield json.dumps({"type": "thought", "data": f"Step {i+1}: Reasoning..."}) + "\n"
             
-            prompt = self._build_step_prompt(query, plan, steps, i + 1)
+            prompt = self._build_step_prompt(query, plan, steps, i + 1, memories)
             
             # Determine which model to use
             if model != "auto":
