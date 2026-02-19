@@ -263,7 +263,8 @@ async def health_check():
         "openai": reasoning_engine.openai_client.api_key is not None,
         "anthropic": reasoning_engine.anthropic_client.api_key is not None,
         "deepseek": reasoning_engine.deepseek_client.api_key is not None,
-        "database": learning_system.storage.engine is not None if hasattr(learning_system.storage, 'engine') else False
+        "database": learning_system.storage.engine is not None if hasattr(learning_system.storage, 'engine') else False,
+        "db_error": learning_system.storage.last_error if hasattr(learning_system.storage, 'last_error') else None
     }
     
     return {

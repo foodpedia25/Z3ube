@@ -94,6 +94,7 @@ class DatabaseStorage:
     def __init__(self, db_url: Optional[str] = None):
         # Determine Database URL
         self.db_url = db_url or os.getenv("DATABASE_URL")
+        self.last_error = None
         
         # Fallback to local SQLite if no DB URL provided
         if not self.db_url:
@@ -128,6 +129,7 @@ class DatabaseStorage:
             logger.info(f"Database connected: {self.db_url.split('://')[0]}://***")
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
+            self.last_error = str(e)
             self.engine = None
             self.Session = None
 
