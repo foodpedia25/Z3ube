@@ -66,7 +66,7 @@ async def root():
     """Root endpoint"""
     return {
         "name": "Z3ube API",
-        "version": "1.0.0",
+        "version": "1.0.1+debug",
         "status": "operational",
         "capabilities": [
             "reasoning",
