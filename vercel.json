@@ -3,7 +3,16 @@
     "builds": [
         {
             "src": "api/index.py",
-            "use": "@vercel/python"
+            "use": "@vercel/python",
+            "config": {
+                "includeFiles": [
+                    "core/**",
+                    "db/**",
+                    "data/**",
+                    "api/**",
+                    "requirements.txt"
+                ]
+            }
         },
         {
             "src": "frontend/package.json",
