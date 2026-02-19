@@ -80,6 +80,13 @@ Once both servers are running:
    - See learning statistics
    - Check auto-healer status
 
+4. **Explore Robotics Studio:** `http://localhost:3000/robotics`
+   - Generate full ROS2/Arduino projects
+   - Configure sensors and platforms
+
+5. **Visualize Knowledge:** `http://localhost:3000/knowledge`
+   - Interactive 3D graph of AI memory
+
 ## 🧪 Test Examples
 
 ### Chat Examples:
@@ -90,7 +97,10 @@ Once both servers are running:
 ### Code Generation:
 - "Generate Python code for a binary search tree with insert, search, and delete methods"
 - "Create a React component for a todo list with TypeScript"
-- "Write ROS2 code for a robot navigation node"
+
+### Robotics Studio:
+- "Create a ROS2 navigation node for a 4-wheeled rover with Lidar and IMU"
+- "Generate Arduino code for a robotic arm with 6 servos"
 
 ### Research:
 - "Research the latest developments in artificial intelligence"
@@ -111,11 +121,11 @@ Once both servers are running:
 
 ## 🌟 Key Features
 
-✅ **Reasoning** - Multi-step chain-of-thought  
+✅ **Reasoning 2.0** - Self-learning chain-of-thought  
 ✅ **Research** - Deep multi-source analysis  
-✅ **Code Gen** - Multiple languages + robotics  
-✅ **Self-Learning** - Improves over time  
+✅ **Robotics Studio** - Full project generation  
+✅ **3D Knowledge Graph** - Interactive visualization  
+✅ **Neural Dashboard** - Real-time system status  
 ✅ **Auto-Healing** - Automatic error recovery  
-✅ **Matrix UI** - Stunning visual experience  
 
-Enjoy your next-generation AI agent! 🚀
+Enjoy your next-generation World-Class AI agent! 🚀🌍

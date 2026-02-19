@@ -705,8 +705,8 @@ Synthesize these steps into a comprehensive answer."""
         steps: List[ThoughtStep],
         conclusion: str
     ):
-        """Store interaction in memory"""
-        # Add to short-term memory
+        """Store interaction in memory and persist to learning system"""
+        # Add to short-term memory (RAM)
         self.short_term_memory.append({
             "query": query,
             "steps": [s.to_dict() for s in steps],
@@ -718,6 +718,22 @@ Synthesize these steps into a comprehensive answer."""
         if len(self.short_term_memory) > 10:
             # Move oldest to long-term (simplified)
             self.long_term_memory.append(self.short_term_memory.pop(0))
+            
+        # Persist to Learning System (Disk)
+        try:
+            # Calculate a simple success score based on confidence
+            # In a real system, this would come from user feedback
+            confidence = steps[-1].confidence if steps else 0.8
+            
+            learning_system.record_interaction(
+                query=query,
+                response=conclusion,
+                feedback={"score": 1.0 if confidence > 0.8 else 0.5, "comment": "Auto-recorded"},
+                context={"steps": len(steps), "model": self.gemini_model}
+            )
+            print(f"💾 Interaction persisted to Learning System (Confidence: {confidence})")
+        except Exception as e:
+            print(f"⚠️ Failed to persist learning: {e}")
             
     def get_context(self) -> Dict[str, Any]:
         """Get current reasoning context and statistics"""

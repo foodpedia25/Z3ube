@@ -65,14 +65,18 @@ Frontend will run at: `http://localhost:3000`
 
 - **Landing Page**: http://localhost:3000
 - **Chat Interface**: http://localhost:3000/chat
-- **Dashboard**: http://localhost:3000/dashboard
+- **Neural Dashboard**: http://localhost:3000/dashboard
+- **Robotics Studio**: http://localhost:3000/robotics
+- **Knowledge Graph**: http://localhost:3000/knowledge
 - **API Docs**: http://localhost:8000/docs
 
 ## ✅ What to Expect
 
 - **Matrix Rain Background**: Animated green digital rain
 - **Advanced Chat**: Ask complex questions and see thinking steps
-- **Code Generation**: Request code in any language
-- **Dashboard**: View system metrics and capabilities
+- **Self-Learning**: The system learns from every interaction
+- **Robotics Studio**: Generate full ROS2 project structures
+- **3D Knowledge Graph**: Visualize the AI's internal state
+- **Dashboard**: View real-time system metrics
 
-Enjoy your next-generation AI agent! 🚀
+Enjoy your next-generation World-Class AI agent! 🚀🌍
