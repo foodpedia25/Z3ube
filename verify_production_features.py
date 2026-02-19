@@ -44,7 +44,10 @@ def test_chat():
             print("✅ Chat API Passed")
             data = response.json()
             print(f"AI Response: {data.get('response')}")
-            print(f"Thinking Steps: {len(data.get('thinking_steps', []))}")
+            steps = data.get('thinking_steps', [])
+            print(f"Thinking Steps: {len(steps)}")
+            for s in steps:
+                print(f"  Step {s.get('step')}: {s.get('reasoning')}")
         else:
             print(f"❌ Chat API Failed: {response.text}")
     except Exception as e:
@@ -62,7 +65,10 @@ def test_robotics():
         if response.status_code == 200:
             print("✅ Robotics API Passed")
             data = response.json()
-            print(f"Files Generated: {list(data.get('files', {}).keys())}")
+            files = data.get('files', {})
+            print(f"Files Generated: {list(files.keys())}")
+            if 'error.txt' in files:
+                print(f"  Error Content: {files['error.txt']}")
         else:
             print(f"❌ Robotics API Failed: {response.text}")
     except Exception as e:

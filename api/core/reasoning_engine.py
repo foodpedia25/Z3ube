@@ -93,10 +93,10 @@ class ReasoningEngine:
         self.ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
         
         # Configure Gemini
-        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
         
         # Configure OpenAI
-        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
         # Configure Mock LLM for testing
         self.mock_llm = os.getenv("MOCK_LLM", "false").lower() == "true"
@@ -817,12 +817,12 @@ Synthesize these steps into a comprehensive answer."""
     def get_context(self) -> Dict[str, Any]:
         """Get current reasoning context and statistics"""
         return {
-            "short_term_memory_size": len(self.short_term_memory),
-            "long_term_memory_size": len(self.long_term_memory),
-            "active_model": "Gemini 3 Flash" if self.gemini_client else "OpenAI (Fallback)",
-            "ollama_active": self.use_ollama,
-            "mock_mode": self.mock_llm
-        }
+        "short_term_memory_size": len(self.short_term_memory),
+        "long_term_memory_size": len(self.long_term_memory),
+        "active_model": f"Gemini ({self.gemini_model})" if self.gemini_client else "OpenAI (Fallback)",
+        "ollama_active": self.use_ollama,
+        "mock_mode": self.mock_llm
+    }
 
 # Global reasoning engine instance
 reasoning_engine = ReasoningEngine()

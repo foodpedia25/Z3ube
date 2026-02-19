@@ -69,7 +69,7 @@ class CodeGenerator:
         try:
             from google import genai
             self.gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-            self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+            self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
             print("✅ Gemini Client initialized in CodeGenerator")
         except Exception as e:
             print(f"⚠️ CodeGenerator Gemini Client initialization failed: {e}")
