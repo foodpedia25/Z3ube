@@ -158,7 +158,7 @@ Provide ONLY the code, with comments explaining key parts."""
             code = await self._query_gemini(prompt)
         except Exception as e:
             print(f"Gemini code generation failed: {e}")
-            code = f"# Error generating {language} code: {e}"
+            code = f"# Error generating {language} code: {str(e)}"
         
         # Extract code from markdown if present
         code = self._extract_code_from_markdown(code)
@@ -206,7 +206,7 @@ Provide complete, production-ready robotics code."""
             code = await self._query_gemini(prompt)
         except Exception as e:
             print(f"Gemini robotics generation failed: {e}")
-            code = f"# Error generating robotics code: {e}"
+            code = f"# Error generating robotics code: {str(e)}"
         code = self._extract_code_from_markdown(code)
         
         explanation = await self._explain_code(code, language, description)

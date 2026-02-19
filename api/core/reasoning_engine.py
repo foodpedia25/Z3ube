@@ -522,7 +522,7 @@ Relevant past learnings:
             
         except Exception as e:
             print(f"⚠️ Gemini reasoning failed: {e}")
-            return "Thinking...", f"Error: {str(e)}", 0.0
+            return "Thinking...", f"Gemini Error: {str(e)}", 0.0
 
     async def _synthesize_conclusion(
         self,
