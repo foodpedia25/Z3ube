@@ -74,6 +74,12 @@ class ReasoningEngine:
         # Initialize AI clients
         self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.anthropic_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        
+        # Initialize Deepseek (OpenAI-compatible)
+        self.deepseek_client = AsyncOpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"), 
+            base_url="https://api.deepseek.com"
+        )
 
         
         # Initialize Ollama (local LLM)
@@ -282,16 +288,20 @@ Consider these past lessons:
                 elif target_model == "llama" and not self.use_ollama:
                     # Fallback if Llama requested but not available
                     thought, reasoning, confidence = await self._reason_with_openai(prompt)
+                elif target_model == "deepseek":
+                     thought, reasoning, confidence = await self._reason_with_deepseek(prompt)
                 else:
                     # Default fallback
                     thought, reasoning, confidence = await self._reason_with_openai(prompt)
             else:
                 # Auto rotation logic
-                # Pattern: Ollama (if enabled) -> OpenAI -> Anthropic -> Gemini
-                model_index = i % 4 if self.use_ollama else i % 3
+                # Pattern: Ollama (if enabled) -> OpenAI -> Anthropic -> Gemini -> Deepseek
+                model_index = i % 5 if self.use_ollama else i % 4
                 
                 if self.use_ollama and model_index == 0:
                      thought, reasoning, confidence = await self._reason_with_ollama(prompt)
+                elif model_index == 4: # Deepseek for variety
+                     thought, reasoning, confidence = await self._reason_with_deepseek(prompt)
                 else:
                     # Default to Gemini for all other steps in auto mode
                     thought, reasoning, confidence = await self._reason_with_gemini(prompt)
@@ -358,6 +368,38 @@ Relevant past learnings:
         except Exception as e:
             print(f"⚠️ OpenAI reasoning failed: {e}")
             # Fallback to Gemini if OpenAI fails
+            if self.gemini_client:
+                return await self._reason_with_gemini(prompt)
+            return "Thinking...", f"Error: {str(e)}", 0.0
+
+    async def _reason_with_deepseek(self, prompt: str) -> tuple[str, str, float]:
+        """Perform reasoning using Deepseek's model"""
+        try:
+            # Check if client initialized
+            if not self.deepseek_client.api_key:
+                 raise Exception("Deepseek API Key not set")
+
+            response = await self.deepseek_client.chat.completions.create(
+                model="deepseek-chat", # or deepseek-reasoner
+                messages=[
+                    {"role": "system", "content": "You are a brilliant reasoning engine. Think step by step with clear logic."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Parse thought and reasoning
+            lines = content.split('\n')
+            thought = lines[0] if lines else content[:100]
+            reasoning = '\n'.join(lines[1:]) if len(lines) > 1 else content
+            
+            return thought, reasoning, 0.89
+            
+        except Exception as e:
+            print(f"⚠️ Deepseek reasoning failed: {e}")
+            # Fallback to Gemini
             if self.gemini_client:
                 return await self._reason_with_gemini(prompt)
             return "Thinking...", f"Error: {str(e)}", 0.0

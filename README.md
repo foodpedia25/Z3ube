@@ -33,6 +33,7 @@ Z3ube's reasoning engine cycles through these state-of-the-art models for every 
 | **2** | 🌐 **OpenAI** | **GPT-4** | **Logic & Strategy** - Deep reasoning and decomposition |
 | **3** | 🌍 **Anthropic** | **Claude 3.5 Sonnet** | **Nuance & Planning** - Creative problem solving |
 | **4** | ⚡ **Google** | **Gemini 3 Flash** | **Context & Synthesis** - Frontier speed & reasoning |
+| **5** | 🐳 **Deepseek** | **Deepseek-V3** | **Efficiency & Cost** - High-performance reasoning |
 
 ---
 
