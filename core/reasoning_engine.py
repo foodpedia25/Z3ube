@@ -699,5 +699,35 @@ Synthesize these steps into a comprehensive answer."""
             yield json.dumps({"type": "content", "data": word + " "}) + "\n"
             await asyncio.sleep(0.1)
 
+    def _store_in_memory(
+        self,
+        query: str,
+        steps: List[ThoughtStep],
+        conclusion: str
+    ):
+        """Store interaction in memory"""
+        # Add to short-term memory
+        self.short_term_memory.append({
+            "query": query,
+            "steps": [s.to_dict() for s in steps],
+            "conclusion": conclusion,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Keep short-term memory limited
+        if len(self.short_term_memory) > 10:
+            # Move oldest to long-term (simplified)
+            self.long_term_memory.append(self.short_term_memory.pop(0))
+            
+    def get_context(self) -> Dict[str, Any]:
+        """Get current reasoning context and statistics"""
+        return {
+            "short_term_memory_size": len(self.short_term_memory),
+            "long_term_memory_size": len(self.long_term_memory),
+            "active_model": "Gemini 3 Flash" if self.gemini_client else "OpenAI (Fallback)",
+            "ollama_active": self.use_ollama,
+            "mock_mode": self.mock_llm
+        }
+
 # Global reasoning engine instance
 reasoning_engine = ReasoningEngine()

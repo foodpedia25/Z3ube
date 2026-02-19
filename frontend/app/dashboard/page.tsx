@@ -1,226 +1,175 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-interface Stats {
-    learning?: {
-        total_interactions: number;
-        success_rate: number;
-        patterns_identified: number;
-    };
-    health?: {
-        status: string;
-        metrics: {
-            total_errors: number;
-            recovery_success_rate: number;
-        };
-    };
-}
-
 export default function DashboardPage() {
-    const [stats, setStats] = useState<Stats>({});
+    const [status, setStatus] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchStats();
+        const fetchStatus = async () => {
+            try {
+                // Determine API URL based on environment
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000');
+                const res = await fetch(`${apiUrl}/system/status`);
+                if (!res.ok) throw new Error('Failed to fetch status');
+                const data = await res.json();
+                setStatus(data);
+            } catch (e) {
+                console.error("Failed to fetch status", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStatus();
+        const interval = setInterval(fetchStatus, 3000); // Poll every 3 seconds
+        return () => clearInterval(interval);
     }, []);
 
-    const fetchStats = async () => {
-        try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            const response = await fetch(`${apiUrl}/stats`);
-            const data = await response.json();
-            setStats(data);
-        } catch (error) {
-            console.error('Error fetching stats:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    if (loading && !status) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-black text-cyan-500">
+                <div className="animate-pulse">Initializing Neural Interface...</div>
+            </div>
+        );
+    }
+
+    const { health, learning, reasoning, system } = status || {};
 
     return (
-        <main className="min-h-screen p-8 relative z-10">
-            <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center mb-12"
-                >
-                    <h1 className="text-5xl font-bold glow-text animate-glow mb-4">
-                        System Dashboard
-                    </h1>
-                    <p className="text-gray-400">Real-time monitoring of Z3ube capabilities</p>
-                </motion.div>
+        <main className="min-h-screen bg-black text-cyan-500 p-8 font-mono relative overflow-hidden">
+            {/* Background Matrix Effect (Simplified) */}
+            <div className="absolute inset-0 pointer-events-none opacity-10 bg-[url('/matrix-bg.png')]"></div>
 
-                {loading ? (
-                    <div className="text-center text-matrix-green">
-                        <div className="text-2xl">Loading metrics...</div>
+            <div className="max-w-7xl mx-auto relative z-10">
+                <header className="mb-12 border-b border-cyan-900 pb-4 flex justify-between items-end">
+                    <div>
+                        <h1 className="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">
+                            Z3UBE NEURAL DASHBOARD
+                        </h1>
+                        <p className="text-sm text-cyan-700">SYSTEM STATUS: {health?.status?.toUpperCase() || 'UNKNOWN'}</p>
                     </div>
-                ) : (
-                    <>
-                        {/* System Status */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <StatCard
-                                title="System Status"
-                                value={stats.health?.status || 'Unknown'}
-                                subtitle="Overall Health"
-                                color="green"
-                            />
-                            <StatCard
-                                title="Total Interactions"
-                                value={stats.learning?.total_interactions || 0}
-                                subtitle="Learning from experience"
-                                color="blue"
-                            />
-                            <StatCard
-                                title="Success Rate"
-                                value={`${((stats.learning?.success_rate || 0) * 100).toFixed(1)}%`}
-                                subtitle="Performance metric"
-                                color="green"
-                            />
-                        </div>
+                    <div className="text-right text-xs text-gray-500">
+                        <p>UPTIME: {system?.uptime || '0%'}</p>
+                        <p>LATENCY: {system?.latency || '0ms'}</p>
+                    </div>
+                </header>
 
-                        {/* Capabilities Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                            <CapabilityCard
-                                icon="🧠"
-                                title="Reasoning Engine"
-                                status="Active"
-                                description="Multi-step chain-of-thought processing"
-                            />
-                            <CapabilityCard
-                                icon="📚"
-                                title="Research Engine"
-                                status="Active"
-                                description="Deep multi-source research"
-                            />
-                            <CapabilityCard
-                                icon="💻"
-                                title="Code Generator"
-                                status="Active"
-                                description="Multi-language code generation"
-                            />
-                            <CapabilityCard
-                                icon="🔧"
-                                title="Auto-Healer"
-                                status="Active"
-                                description={`${stats.health?.metrics?.total_errors || 0} errors handled`}
-                            />
-                            <CapabilityCard
-                                icon="📈"
-                                title="Self-Learning"
-                                status="Active"
-                                description={`${stats.learning?.patterns_identified || 0} patterns identified`}
-                            />
-                            <CapabilityCard
-                                icon="🕸️"
-                                title="Knowledge Graph"
-                                status="Active"
-                                description="Semantic relationship mapping"
-                            />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {/* Health Card */}
+                    <DashboardCard title="SYSTEM HEALTH" delay={0.1}>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={`w-4 h-4 rounded-full ${health?.status === 'healthy' ? 'bg-green-500 shadow-[0_0_10px_#00ff00]' : 'bg-red-500 animate-pulse'}`}></div>
+                            <span className="text-xl font-bold">{health?.metrics?.recovery_success_rate ? (health.metrics.recovery_success_rate * 100).toFixed(1) : 0}%</span>
                         </div>
+                        <div className="text-xs text-gray-400 space-y-1">
+                            <p>Recovered Errors: {health?.metrics?.recovered_errors || 0}</p>
+                            <p>Total Errors: {health?.metrics?.total_errors || 0}</p>
+                        </div>
+                    </DashboardCard>
 
-                        {/* Performance Metrics */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                            className="glass p-6 rounded-lg"
-                        >
-                            <h2 className="text-2xl font-bold text-matrix-green mb-4">
-                                Performance Metrics
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <MetricRow
-                                    label="Patterns Identified"
-                                    value={stats.learning?.patterns_identified || 0}
-                                />
-                                <MetricRow
-                                    label="Success Rate"
-                                    value={`${((stats.learning?.success_rate || 0) * 100).toFixed(1)}%`}
-                                />
-                                <MetricRow
-                                    label="Errors Handled"
-                                    value={stats.health?.metrics?.total_errors || 0}
-                                />
-                                <MetricRow
-                                    label="Recovery Rate"
-                                    value={`${((stats.health?.metrics?.recovery_success_rate || 0) * 100).toFixed(1)}%`}
-                                />
-                            </div>
-                        </motion.div>
-                    </>
-                )}
+                    {/* Reasoning Card */}
+                    <DashboardCard title="CORTEX ACTIVITY" delay={0.2}>
+                        <div className="mb-4">
+                            <div className="text-2xl font-bold text-white mb-1">{reasoning?.short_term_memory_size || 0}</div>
+                            <div className="text-xs text-cyan-600">Active Thoughts</div>
+                        </div>
+                        <div className="text-xs space-y-1 border-t border-cyan-900/50 pt-2">
+                            <p>Model: <span className="text-white">{reasoning?.active_model}</span></p>
+                            <p>Long Term Memory: {reasoning?.long_term_memory_size || 0}</p>
+                        </div>
+                    </DashboardCard>
+
+                    {/* Learning Card */}
+                    <DashboardCard title="NEURAL PLASTICITY" delay={0.3}>
+                        <div className="mb-4">
+                            <div className="text-2xl font-bold text-pink-500 mb-1">{learning?.patterns_identified || 0}</div>
+                            <div className="text-xs text-pink-700">Patterns Learned</div>
+                        </div>
+                        <div className="text-xs space-y-1 border-t border-cyan-900/50 pt-2">
+                            <p>Success Rate: {learning?.success_rate ? (learning.success_rate * 100).toFixed(1) : 0}%</p>
+                            <p>Improvements: {learning?.improvements_applied || 0}</p>
+                        </div>
+                    </DashboardCard>
+
+                    {/* Network Card */}
+                    <DashboardCard title="NETWORK BRIDGE" delay={0.4}>
+                        <div className="mb-4">
+                            <div className="text-2xl font-bold text-yellow-500 mb-1">{system?.active_connections || 0}</div>
+                            <div className="text-xs text-yellow-700">Active Nodes</div>
+                        </div>
+                        <div className="text-xs space-y-1 border-t border-cyan-900/50 pt-2">
+                            <p>Protocol: REST/WebSocket</p>
+                            <p>Encryption: TLS 1.3</p>
+                        </div>
+                    </DashboardCard>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Recent Errors Log */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="bg-black/40 border border-red-900/30 p-4 rounded-lg backdrop-blur-sm"
+                    >
+                        <h3 className="text-red-500 font-bold mb-4 text-sm tracking-wider">⚠️ ANOMALY LOG</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                            {health?.recent_errors && health.recent_errors.length > 0 ? (
+                                health.recent_errors.map((err: any, i: number) => (
+                                    <div key={i} className="text-xs border-l-2 border-red-800 pl-2 py-1">
+                                        <div className="flex justify-between text-gray-500 mb-1">
+                                            <span>{new Date(err.timestamp).toLocaleTimeString()}</span>
+                                            <span className="text-red-400">{err.type}</span>
+                                        </div>
+                                        <div className="text-gray-300">{err.message}</div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-gray-600 text-center py-8">System Nominal. No Anomalies Detected.</div>
+                            )}
+                        </div>
+                    </motion.div>
+
+                    {/* Learned Patterns Log */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 }}
+                        className="bg-black/40 border border-pink-900/30 p-4 rounded-lg backdrop-blur-sm"
+                    >
+                        <h3 className="text-pink-500 font-bold mb-4 text-sm tracking-wider">🧠 SYNAPTIC PATTERNS</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                            {learning?.top_success_strategies ? (
+                                Object.entries(learning.top_success_strategies).map(([tag, strategies]: any, i: number) => (
+                                    <div key={i} className="text-xs border-l-2 border-pink-800 pl-2 py-1">
+                                        <div className="text-pink-400 font-bold mb-1">Context: {tag}</div>
+                                        <div className="text-gray-400 italic">"Strategy identified from {strategies.length} successful interactions"</div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-gray-600 text-center py-8">Awaiting Neural Data...</div>
+                            )}
+                        </div>
+                    </motion.div>
+                </div>
             </div>
         </main>
     );
 }
 
-function StatCard({
-    title,
-    value,
-    subtitle,
-    color,
-}: {
-    title: string;
-    value: string | number;
-    subtitle: string;
-    color: 'green' | 'blue';
-}) {
-    const colorClass = color === 'green' ? 'text-matrix-green' : 'text-neon-blue';
-
+function DashboardCard({ title, children, delay }: { title: string, children: React.ReactNode, delay: number }) {
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="glass p-6 rounded-lg hover-glow"
+            transition={{ delay }}
+            className="bg-black/60 border border-cyan-500/20 p-6 rounded-lg hover:border-cyan-500/50 transition-colors group"
         >
-            <h3 className="text-gray-400 text-sm mb-2">{title}</h3>
-            <div className={`text-4xl font-bold ${colorClass} glow-text mb-2`}>
-                {value}
-            </div>
-            <p className="text-gray-500 text-sm">{subtitle}</p>
+            <h3 className="text-xs font-bold text-gray-500 mb-4 tracking-widest group-hover:text-cyan-400 transition-colors">{title}</h3>
+            {children}
         </motion.div>
-    );
-}
-
-function CapabilityCard({
-    icon,
-    title,
-    status,
-    description,
-}: {
-    icon: string;
-    title: string;
-    status: string;
-    description: string;
-}) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
-            className="glass p-6 rounded-lg hover-glow"
-        >
-            <div className="flex items-start gap-4">
-                <div className="text-4xl">{icon}</div>
-                <div className="flex-1">
-                    <h3 className="text-xl font-bold text-matrix-green mb-1">{title}</h3>
-                    <div className="text-green-400 text-sm mb-2">● {status}</div>
-                    <p className="text-gray-400 text-sm">{description}</p>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
-
-function MetricRow({ label, value }: { label: string; value: string | number }) {
-    return (
-        <div className="flex justify-between items-center p-3 bg-black/30 rounded">
-            <span className="text-gray-400">{label}</span>
-            <span className="text-matrix-green font-bold">{value}</span>
-        </div>
     );
 }

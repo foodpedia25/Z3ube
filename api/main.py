@@ -292,6 +292,30 @@ async def get_patterns():
     }
 
 
+@app.get("/system/status")
+async def system_status():
+    """
+    Get real-time system status for Neural Dashboard
+    """
+    try:
+        current_health = auto_healer.get_health_status()
+        learning_stats = learning_system.get_learning_stats()
+        reasoning_ctx = reasoning_engine.get_context()
+        
+        return {
+            "health": current_health,
+            "learning": learning_stats,
+            "reasoning": reasoning_ctx,
+            "system": {
+                "uptime": "99.9%", # Mock for now
+                "latency": "45ms",
+                "active_connections": 12
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
