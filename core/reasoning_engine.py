@@ -23,7 +23,12 @@ load_dotenv()
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
 
-from langchain_ollama import ChatOllama
+try:
+    from langchain_ollama import ChatOllama
+    HAS_LANGCHAIN = True
+except ImportError:
+    HAS_LANGCHAIN = False
+    ChatOllama = None
 
 from core.self_learning import learning_system
 
