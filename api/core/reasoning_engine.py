@@ -475,7 +475,6 @@ Relevant past learnings:
                 print("⚠️ Gemini client not ready, falling back to OpenAI")
                 return await self._reason_with_openai(prompt)
 
-            from google import genai
             from google.genai import types
             
             # Simple prompt wrapper for Gemini
@@ -545,9 +544,16 @@ Reasoning chain:
 Synthesize these steps into a comprehensive answer."""
 
         try:
-            return await self._query_gemini(prompt)
+            print(f"📡 Synthesizing conclusion for query: {query[:50]}...")
+            conclusion = await self._query_gemini(prompt)
+            if not conclusion:
+                 raise Exception("Gemini returned empty conclusion")
+            return conclusion
         except Exception as e:
-            print(f"Gemini synthesis failed: {e}")
+            print(f"❌ Gemini synthesis failed: {e}")
+            # Try to return at least something from steps if synthesis fails
+            if steps:
+                 return f"Summarization failed. Summary of thoughts: {steps[0].thought} ... {steps[-1].thought}"
             return "Unable to synthesize conclusion due to error."
 
     async def _reflect_and_validate(

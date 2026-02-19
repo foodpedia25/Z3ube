@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+import asyncio
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -86,7 +87,8 @@ class CodeGenerator:
         if not self.gemini_client:
              raise Exception("Gemini client not initialized")
             
-        response = self.gemini_client.models.generate_content(
+        response = await asyncio.to_thread(
+            self.gemini_client.models.generate_content,
             model=self.gemini_model,
             contents=prompt
         )
@@ -423,6 +425,7 @@ Output format:
     "package.xml": "..."
 }}
 """
+        response_text = ""
         try:
              response_text = await self._query_gemini(prompt)
              
