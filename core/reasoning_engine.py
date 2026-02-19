@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import json
 import asyncio
+import base64
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -137,7 +138,7 @@ class ReasoningEngine:
             print(f"Gemini query failed: {e}")
             raise e
 
-    async def reason(self, query: str, depth: str = "deep", model: str = "auto") -> ReasoningResult:
+    async def reason(self, query: str, depth: str = "deep", model: str = "auto", image: Optional[str] = None) -> ReasoningResult:
         """
         Main reasoning method using chain-of-thought
         
@@ -187,7 +188,7 @@ class ReasoningEngine:
         plan = await self._create_plan(query, decomposition, memories)
         
         # Step 3: Execute reasoning steps
-        steps = await self._execute_reasoning_chain(query, plan, depth, model, memories)
+        steps = await self._execute_reasoning_chain(query, plan, depth, model, memories, image)
         
         # Step 4: Synthesize conclusion
         conclusion = await self._synthesize_conclusion(query, steps)
@@ -265,7 +266,8 @@ Consider these past lessons:
         plan: Dict[str, Any],
         depth: str,
         model: str = "auto",
-        memories: List[str] = None
+        memories: List[str] = None,
+        image: Optional[str] = None
     ) -> List[ThoughtStep]:
         """Execute the reasoning chain step by step with optional model enforcement"""
         steps = []
@@ -304,7 +306,7 @@ Consider these past lessons:
                      thought, reasoning, confidence = await self._reason_with_deepseek(prompt)
                 else:
                     # Default to Gemini for all other steps in auto mode
-                    thought, reasoning, confidence = await self._reason_with_gemini(prompt)
+                    thought, reasoning, confidence = await self._reason_with_gemini(prompt, image)
             
             step = ThoughtStep(
                 step_number=i + 1,
@@ -459,7 +461,7 @@ Relevant past learnings:
             print(f"⚠️ Ollama reasoning failed: {e}, falling back to Gemini")
             return await self._reason_with_gemini(prompt)
 
-    async def _reason_with_gemini(self, prompt: str) -> tuple[str, str, float]:
+    async def _reason_with_gemini(self, prompt: str, image: Optional[str] = None) -> tuple[str, str, float]:
         """Perform reasoning using Google's Gemini model via new SDK"""
         try:
             # Check if client initialized
@@ -475,10 +477,34 @@ Relevant past learnings:
             gemini_prompt = f"System: You are a brilliant reasoning engine. Think step by step.\n\nUser: {prompt}"
             
             # Run synchronous Gemini call in thread to avoid blocking loop
+            if image:
+                # Handle Vision Request
+                try:
+                    # Remove header if present (data:image/jpeg;base64,)
+                    if "base64," in image:
+                        image_data = image.split("base64,")[1]
+                    else:
+                        image_data = image
+                        
+                    contents = [
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part.from_text(gemini_prompt),
+                                types.Part.from_bytes(data=base64.b64decode(image_data), mime_type="image/jpeg")
+                            ]
+                        )
+                    ]
+                except Exception as img_err:
+                    print(f"⚠️ Image processing failed: {img_err}")
+                    contents = gemini_prompt
+            else:
+                contents = gemini_prompt
+
             response = await asyncio.to_thread(
                 self.gemini_client.models.generate_content,
                 model=self.gemini_model,
-                contents=gemini_prompt
+                contents=contents
             )
             
             content = response.text
@@ -564,7 +590,7 @@ Final Conclusion: [validated conclusion]"""
         
         return validated_conclusion, confidence
 
-    async def reason_stream(self, query: str, depth: str = "deep", model: str = "auto") -> AsyncGenerator[str, None]:
+    async def reason_stream(self, query: str, depth: str = "deep", model: str = "auto", image: Optional[str] = None) -> AsyncGenerator[str, None]:
         """
         Stream reasoning process and final conclusion
         
@@ -651,7 +677,7 @@ Final Conclusion: [validated conclusion]"""
                     thought, reasoning, confidence = await self._reason_with_openai(prompt)
             else:
                  # Use Gemini for auto mode
-                 thought, reasoning, confidence = await self._reason_with_gemini(prompt)
+                 thought, reasoning, confidence = await self._reason_with_gemini(prompt, image)
             
             step = ThoughtStep(i + 1, thought, reasoning, confidence)
             steps.append(step)

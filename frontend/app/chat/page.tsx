@@ -2,23 +2,53 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { PhotoIcon, XMarkIcon, MicrophoneIcon, SpeakerWaveIcon, StopIcon } from '@heroicons/react/24/outline'; // Use Heroicons
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 
+interface ThinkingStep {
+    step: number;
+    thought: string;
+    reasoning: string;
+    confidence: number;
+}
+
+interface ResearchSource {
+    title: string;
+    content: string;
+    url?: string;
+}
+
+interface ResearchResult {
+    topic: string;
+    summary: string;
+    key_findings: string[];
+    sources: ResearchSource[];
+    research_time: number;
+}
+
 interface Message {
     role: 'user' | 'assistant';
     content: string;
-    thinking_steps?: any[];
+    thinking_steps?: ThinkingStep[];
+    image?: string; // Add image support to message interface
 }
 
 export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
+    const [selectedImage, setSelectedImage] = useState<string | null>(null); // Image state
+    const fileInputRef = useRef<HTMLInputElement>(null); // File input ref
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState<'chat' | 'research'>('chat');
-    const [researchResult, setResearchResult] = useState<any>(null);
+    const [researchResult, setResearchResult] = useState<ResearchResult | null>(null);
+
+    // Voice State
+    const [isListening, setIsListening] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const recognitionRef = useRef<any>(null); // Keep as any for Web Speech API compatibility
 
     // Chat State
     const [depth, setDepth] = useState('quick');
@@ -33,13 +63,102 @@ export default function ChatPage() {
         scrollToBottom();
     }, [messages]);
 
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeImage = () => {
+        setSelectedImage(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    // Voice: Speech to Text
+    const startListening = () => {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => setIsListening(true);
+            recognition.onend = () => setIsListening(false);
+            recognition.onError = (event: any) => {
+                console.error('Speech recognition error', event.error);
+                setIsListening(false);
+            };
+            recognition.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                setInput((prev) => prev + (prev ? ' ' : '') + transcript);
+            };
+
+            recognitionRef.current = recognition;
+            recognition.start();
+        } else {
+            alert('Speech recognition is not supported in this browser.');
+        }
+    };
+
+    const stopListening = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
+    };
+
+    // Voice: Text to Speech
+    const speak = (text: string) => {
+        if ('speechSynthesis' in window) {
+            // Cancel any current speech
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => setIsSpeaking(false);
+            utterance.onerror = () => setIsSpeaking(false);
+
+            // Optional: Select a specific voice if available
+            // const voices = window.speechSynthesis.getVoices();
+            // utterance.voice = voices.find(v => v.lang === 'en-US') || null;
+
+            window.speechSynthesis.speak(utterance);
+        } else {
+            alert('Text to speech is not supported in this browser.');
+        }
+    };
+
+    const stopSpeaking = () => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || loading) return;
+        if ((!input.trim() && !selectedImage) || loading) return;
 
-        const userMessage: Message = { role: 'user', content: input };
+        const userMessage: Message = {
+            role: 'user',
+            content: input,
+            image: selectedImage || undefined
+        };
         setMessages((prev) => [...prev, userMessage]);
+
+        const currentImage = selectedImage;
+        const currentInput = input;
+
         setInput('');
+        setSelectedImage(null);
         setLoading(true);
 
         const assistantMessage: Message = { role: 'assistant', content: '', thinking_steps: [] };
@@ -52,9 +171,10 @@ export default function ChatPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: input,
+                    message: currentInput || (currentImage ? "Analyze this image" : ""), // Ensure message exists
                     depth: depth,
-                    model: selectedModel
+                    model: selectedModel,
+                    image: currentImage
                 }),
             });
 
@@ -88,7 +208,9 @@ export default function ChatPage() {
                             if (data.type === 'content') {
                                 lastMessage.content += data.data;
                             } else if (data.type === 'step') {
-                                lastMessage.thinking_steps.push(data.data);
+                                const stepData = data.data as ThinkingStep; // Type assertion
+                                if (!lastMessage.thinking_steps) lastMessage.thinking_steps = [];
+                                lastMessage.thinking_steps.push(stepData);
                             }
 
                             return newMessages;
@@ -134,7 +256,7 @@ export default function ChatPage() {
 
             if (!response.ok) throw new Error('Research failed');
 
-            const data = await response.json();
+            const data = await response.json() as ResearchResult; // Type assertion
             setResearchResult(data);
             setMessages((prev) => [...prev, {
                 role: 'assistant',
@@ -166,6 +288,23 @@ export default function ChatPage() {
                     <p className="text-gray-400">
                         {mode === 'chat' ? 'Powered by advanced AI reasoning' : 'Deep multi-source investigation'}
                     </p>
+
+                    {/* Speaking Indicator / Stop Button */}
+                    {isSpeaking && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="fixed top-24 right-4 z-50"
+                        >
+                            <button
+                                onClick={stopSpeaking}
+                                className="flex items-center gap-2 bg-red-500/20 border border-red-500 text-red-500 px-4 py-2 rounded-full hover:bg-red-500/30 transition-colors shadow-lg backdrop-blur-md"
+                            >
+                                <StopIcon className="w-5 h-5 animate-pulse" />
+                                <span className="text-sm font-medium">Stop Speaking</span>
+                            </button>
+                        </motion.div>
+                    )}
                 </div>
 
                 {/* Messages/Results Container */}
@@ -191,7 +330,7 @@ export default function ChatPage() {
 
                     {/* Chat Messages */}
                     {messages.map((message, index) => (
-                        <MessageBubble key={index} message={message} />
+                        <MessageBubble key={index} message={message} onSpeak={speak} />
                     ))}
 
                     {/* Research Result View */}
@@ -231,7 +370,7 @@ export default function ChatPage() {
                             <div>
                                 <h3 className="text-lg font-semibold text-white mb-2">Sources</h3>
                                 <div className="grid gap-3">
-                                    {researchResult.sources.map((source: any, i: number) => (
+                                    {researchResult.sources.map((source, i) => (
                                         <div key={i} className="bg-black/50 p-3 rounded border border-gray-800">
                                             <div className="text-cyan-500 text-sm font-medium mb-1">{source.title}</div>
                                             <div className="text-gray-500 text-xs truncate">{source.content}</div>
@@ -320,19 +459,70 @@ export default function ChatPage() {
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-end">
+                        {/* Image Upload Input */}
                         <input
-                            type="text"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder={mode === 'chat' ? "Ask Z3ube anything..." : "Enter a topic to research..."}
-                            className="flex-1 bg-black/50 border border-cyan-500/30 rounded-lg px-4 py-3 text-cyan-400 placeholder-gray-500 focus:outline-none focus:border-cyan-500"
-                            disabled={loading}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            ref={fileInputRef}
+                            className="hidden"
                         />
                         <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-3 bg-black/50 border border-cyan-500/30 rounded-lg text-cyan-500 hover:bg-cyan-500/10 transition-colors mb-[1px]"
+                            title="Upload Image"
+                        >
+                            <PhotoIcon className="w-6 h-6" />
+                        </button>
+
+                        {/* Microphone Button */}
+                        <button
+                            type="button"
+                            onClick={isListening ? stopListening : startListening}
+                            className={`p-3 rounded-lg border transition-colors mb-[1px] ${isListening
+                                ? 'bg-red-500/20 border-red-500 text-red-500 animate-pulse'
+                                : 'bg-black/50 border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/10'
+                                }`}
+                            title={isListening ? "Stop Listening" : "Start Voice Input"}
+                        >
+                            <MicrophoneIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="flex-1 flex flex-col gap-2">
+                            {/* Image Preview */}
+                            {selectedImage && (
+                                <div className="relative inline-block w-fit">
+                                    <img
+                                        src={selectedImage}
+                                        alt="Preview"
+                                        className="h-16 w-auto rounded border border-cyan-500/50"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={removeImage}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                                    >
+                                        <XMarkIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
+                            <input
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder={isListening ? "Listening..." : (mode === 'chat' ? "Ask Z3ube anything..." : "Enter a topic to research...")}
+                                className="w-full bg-black/50 border border-cyan-500/30 rounded-lg px-4 py-3 text-cyan-400 placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <button
                             type="submit"
-                            disabled={loading || !input.trim()}
-                            className="px-6 py-3 bg-cyan-500 text-black font-bold rounded-lg hover-glow disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loading || (!input.trim() && !selectedImage)}
+                            className="px-6 py-3 bg-cyan-500 text-black font-bold rounded-lg hover-glow disabled:opacity-50 disabled:cursor-not-allowed mb-[1px]"
                         >
                             {mode === 'chat' ? 'Send' : 'Research'}
                         </button>
@@ -343,7 +533,7 @@ export default function ChatPage() {
     );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, onSpeak }: { message: Message; onSpeak: (text: string) => void }) {
     const isUser = message.role === 'user';
 
     return (
@@ -353,11 +543,29 @@ function MessageBubble({ message }: { message: Message }) {
             className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
         >
             <div
-                className={`max-w-[85%] p-4 rounded-lg ${isUser
+                className={`max-w-[85%] p-4 rounded-lg relative group ${isUser
                     ? 'bg-cyan-500 text-black'
                     : 'glass text-cyan-400 border border-cyan-500/20'
                     }`}
             >
+                {/* Speaker Button (AI Only) */}
+                {!isUser && (
+                    <button
+                        onClick={() => onSpeak(message.content)}
+                        className="absolute -top-3 -right-3 p-1.5 bg-black/50 border border-cyan-500/30 rounded-full text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-cyan-500/20"
+                        title="Read Aloud"
+                    >
+                        <SpeakerWaveIcon className="w-4 h-4" />
+                    </button>
+                )}
+
+                {/* Image Attachment */}
+                {message.image && (
+                    <div className="mb-4">
+                        <img src={message.image} alt="User Upload" className="max-w-full h-auto rounded-lg border border-black/20" />
+                    </div>
+                )}
+
                 {/* Markdown Content */}
                 <div className={`prose ${isUser ? 'prose-sm' : 'prose-invert'} max-w-none`}>
                     <ReactMarkdown

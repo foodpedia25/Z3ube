@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { SignInButton, SignedIn, SignedOut } from '@clerk/nextjs';
 
 export default function Home() {
     return (
@@ -33,15 +34,28 @@ export default function Home() {
 
                 {/* CTA Buttons */}
                 <div className="flex gap-4 justify-center mb-16 animate-fade-in-up delay-400">
-                    <Link href="/chat">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="px-8 py-3.5 rounded-full bg-cyan-500 text-black font-bold text-[17px] hover:bg-cyan-400 transition-all hover:shadow-lg hover:shadow-cyan-500/20 active:scale-[0.98]"
-                        >
-                            Start Chatting
-                        </motion.button>
-                    </Link>
+                    <SignedOut>
+                        <SignInButton mode="modal">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="px-8 py-3.5 rounded-full bg-cyan-500 text-black font-bold text-[17px] hover:bg-cyan-400 transition-all hover:shadow-lg hover:shadow-cyan-500/20 active:scale-[0.98]"
+                            >
+                                Start Chatting
+                            </motion.button>
+                        </SignInButton>
+                    </SignedOut>
+                    <SignedIn>
+                        <Link href="/chat">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="px-8 py-3.5 rounded-full bg-cyan-500 text-black font-bold text-[17px] hover:bg-cyan-400 transition-all hover:shadow-lg hover:shadow-cyan-500/20 active:scale-[0.98]"
+                            >
+                                Resume Chatting
+                            </motion.button>
+                        </Link>
+                    </SignedIn>
                     <Link href="/dashboard">
                         <motion.button
                             whileHover={{ scale: 1.05 }}

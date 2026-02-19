@@ -3,12 +3,12 @@
 <div align="center">
 
 > **A Next-Generation AI Agent System combining Local & Cloud Intelligence**
-> *OpenAI GPT-4 • Anthropic Claude 3.5 • Google Gemini 3 Flash • Local Llama 3.2*
+> *OpenAI GPT-4 • Anthropic Claude 3.5 • Google Gemini 3 Flash • Deepseek V3 • Local Llama 3.2*
 
 ![Z3ube Banner](https://img.shields.io/badge/Status-Active-success)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)
-![Next.js](https://img.shields.io/badge/Next.js-14+-black.svg)
+![Next.js](https://img.shields.io/badge/Next.js-15+-black.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 </div>
@@ -17,13 +17,13 @@
 
 ## 🚀 Overview
 
-**Z3ube** is an advanced AI agent framework designed to solve complex problems by leveraging a **hybrid multi-model architecture**. Instead of relying on a single AI provider, Z3ube intelligently rotates through four distinct "brains" to provide diverse perspectives, enhanced reasoning, and maximum reliability.
+**Z3ube** is an advanced AI agent framework designed to solve complex problems by leveraging a **hybrid multi-model architecture**. Instead of relying on a single AI provider, Z3ube intelligently rotates through five distinct "brains" to provide diverse perspectives, enhanced reasoning, and maximum reliability.
 
 It features a **privacy-first design** with local model integration via Ollama, ensuring sensitive reasoning steps can happen entirely on your machine.
 
 ---
 
-## 🧠 The 4-Brain Hybrid Engine
+## 🧠 The 5-Brain Hybrid Engine
 
 Z3ube's reasoning engine cycles through these state-of-the-art models for every complex task:
 
@@ -40,20 +40,23 @@ Z3ube's reasoning engine cycles through these state-of-the-art models for every 
 ## ✨ Key Features
 
 ### 🧠 Advanced Intelligence
-- **Hybrid Reasoning Engine**: Cycles through **Gemini 3 Flash** (Speed), **GPT-4** (Logic), **Claude 3.5** (Nuance), and **Llama 3.2** (Privacy) to solve complex problems.
+- **Hybrid Reasoning Engine**: Cycles through **Gemini**, **GPT-4**, **Claude**, **Deepseek**, and **Llama** to solve complex problems.
 - **🛡️ Auto-Healing**: The system proactively detects errors in its own code and attempts to fix them automatically.
-- **📚 Self-Learning 2.0**: Remembers every interaction and improves over time using **Vector Database** memory.
+- **📚 Self-Learning 2.0**: Remembers every interaction and improves over time using **Vector Database** memory (Supabase/pgvector).
 
 ### 🖥️ World-Class Interface
 - **📊 Neural Dashboard**: Real-time visualization of system health, learning metrics, and active reasoning chains.
-- **🕸️ 3D Knowledge Graph**: Interactive exploration of the AI's internal knowledge base.
+- **🕸️ 3D Knowledge Graph**: Interactive exploration of the AI's knowledge base.
 - **🤖 Robotics Studio**: Dedicated environment for generating and visualizing ROS2/Arduino projects.
-- **💻 Cyberpunk UI**: A stunning, hacker-style frontend built with Next.js and Tailwind CSS.
+- **👁️ Vision Capabilities**: Upload images for multi-model analysis.
+- **🎙️ Voice Interface**: Hands-free interaction with Speech-to-Text and Text-to-Speech.
+- **💻 Cyberpunk UI**: A stunning, hacker-style frontend built with Next.js 15, Tailwind CSS, and Framer Motion.
 
 ### ⚡ Infrastructure
+- **🔐 Secure Authentication**: Integrated Login/Signup via Clerk.
 - **☁️ Cloud Persistence**: Seamlessly syncs memory to PostgreSQL/Supabase for permanent learning.
 - **🔄 Recursive Forecasting**: Predicts future steps and outcomes before executing actions.
-- **🌐 Autonomous Research**: Can browse the web to gather real-time information.
+- **🌐 Autonomous Research**: Deep Research mode browses the web to gather real-time information from multiple sources.
 
 ---
 
@@ -76,7 +79,7 @@ cd Z3ube
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies (Use local requirements for full features)
+# Install dependencies
 pip install -r requirements-local.txt
 ```
 
@@ -85,15 +88,25 @@ Create a `.env` file in the root directory:
 ```bash
 cp .env.example .env
 ```
-Fill in your API keys (OpenAI, Anthropic, Google) in `.env`.
+Fill in your API keys (OpenAI, Anthropic, Google, Deepseek) in `.env`.
 
-### 4. Setup Local AI (Ollama)
+### 4. Setup Frontend
 ```bash
-# Install Llama 3.2 3B (Optimized for speed & FAT32 drives)
+cd frontend
+npm install
+
+# Configure Frontend Env
+cp .env.local.example .env.local
+# Add your Clerk API Keys to .env.local
+```
+
+### 5. Setup Local AI (Ollama)
+```bash
+# Install Llama 3.2 3B (Optimized for speed)
 ollama pull llama3.2:3b
 ```
 
-### 5. Run the System
+### 6. Run the System
 
 **Backend (API & AI Engine):**
 ```bash
@@ -104,7 +117,6 @@ uvicorn api.main:app --reload --port 8000
 **Frontend (UI):**
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
@@ -129,27 +141,6 @@ python test_gemini.py
 
 ---
 
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    User[User Interface] --> API[FastAPI Backend]
-    API --> Engine[Reasoning Engine]
-    
-    subgraph "Hybrid Intelligence Core"
-        Engine --> GPT[OpenAI GPT-4]
-        Engine --> Claude[Anthropic Claude]
-        Engine --> Gemini[Google Gemini]
-        Engine --> Ollama[Local Llama 3.2]
-    end
-    
-    Engine --> Memory[Vector Memory]
-    Engine --> Tools[Research & Code Tools]
-```
-
----
-
-
 ## 📚 Documentation
 
 - **[Installation Guide](SETUP.md)**: Extended setup instructions.
@@ -172,5 +163,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ---
 
 <div align="center">
-Built with ❤️ by the Z3ube Team
+Built with ❤️ by the Z3ube Team & Antigravity
 </div>

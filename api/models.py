@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     depth: str = Field("quick", description="Reasoning depth: quick, normal, or deep")
     model: str = Field("auto", description="AI Model to use: auto, openai, anthropic, gemini, llama, deepseek")
+    image: Optional[str] = Field(None, description="Base64 encoded image (JPEG/PNG)")
 
 
 class ChatResponse(BaseModel):

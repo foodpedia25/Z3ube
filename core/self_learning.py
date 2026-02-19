@@ -77,28 +77,20 @@ class Pattern:
         }
 
 
+# ... imports ...
+from core.storage import DatabaseStorage
+
 class SelfLearningSystem:
     """
     Continuous learning system that improves from every interaction
+    Uses Database Persistence for long-term memory.
     """
     
-    def __init__(self, storage_path: str = "data/learning"):
+    def __init__(self):
         global HAS_ML_DEPS
-        # Check if running on Vercel or read-only FS
-        is_vercel = os.environ.get("VERCEL") == "1"
-        try:
-            cwd_writable = os.access(os.getcwd(), os.W_OK)
-        except Exception:
-            cwd_writable = False
-
-        if is_vercel or not cwd_writable:
-            # Use /tmp for read-only environments (ephemeral)
-            self.storage_path = "/tmp/data/learning"
-            logger.info(f"Read-only environment or CWD inaccessible. Using ephemeral storage at {self.storage_path}")
-        else:
-            self.storage_path = storage_path
-            
-        os.makedirs(self.storage_path, exist_ok=True)
+        
+        # Initialize Database Storage
+        self.storage = DatabaseStorage()
         
         # Embedding model for similarity comparisons
         if HAS_ML_DEPS:
@@ -114,7 +106,7 @@ class SelfLearningSystem:
         else:
             self.embedding_model = None
         
-        # Storage
+        # In-memory caches (populated from DB on init)
         self.interactions: List[Interaction] = []
         self.patterns: List[Pattern] = []
         self.success_strategies: Dict[str, List[str]] = defaultdict(list)
@@ -128,8 +120,83 @@ class SelfLearningSystem:
             "improvements_applied": 0
         }
         
-        # Load existing knowledge
+        # Load existing knowledge from Database
         self._load_knowledge()
+    
+    # ... record_interaction ...
+
+    def _save_interaction(self, interaction: Interaction):
+        """Save interaction to Database"""
+        self.storage.save_interaction(interaction.to_dict())
+        
+    def _update_pattern(self, new_pattern: Pattern):
+        """Update or add a pattern and persist to DB"""
+        # Check in memory first
+        updated = False
+        for i, pattern in enumerate(self.patterns):
+            if pattern.pattern_type == new_pattern.pattern_type and \
+               pattern.description == new_pattern.description:
+                # Update existing pattern
+                self.patterns[i] = new_pattern
+                updated = True
+                break
+        
+        if not updated:
+            self.patterns.append(new_pattern)
+            
+        # Persist to DB
+        self.storage.save_pattern(new_pattern.to_dict())
+        
+    def _load_knowledge(self):
+        """Load existing interactions and patterns from Database"""
+        print("📥 Loading knowledge from persistent storage...")
+        
+        # Load Interactions
+        db_interactions = self.storage.get_interactions(limit=500) # Load last 500
+        for data in db_interactions:
+            try:
+                interaction = Interaction(
+                    id=data["id"],
+                    query=data["query"],
+                    response=data["response"],
+                    success=data["success"],
+                    feedback=data.get("feedback"),
+                    timestamp=datetime.fromisoformat(data["timestamp"]) if isinstance(data["timestamp"], str) else data["timestamp"],
+                    tags=data.get("tags", [])
+                )
+                
+                # Regenerate embedding if model available (optimization: store this in DB vector later)
+                if HAS_ML_DEPS and self.embedding_model:
+                     interaction.embedding = self.embedding_model.encode(interaction.query)
+                
+                self.interactions.append(interaction)
+                
+                # Update metrics
+                self.metrics["total_interactions"] += 1
+                if interaction.success:
+                    self.metrics["successful_interactions"] += 1
+                    
+            except Exception as e:
+                logger.error(f"Error rehydrating interaction: {e}")
+
+        # Load Patterns
+        db_patterns = self.storage.get_patterns()
+        for data in db_patterns:
+            try:
+                pattern = Pattern(
+                    pattern_type=data["type"],
+                    description=data["description"],
+                    occurrences=data["occurrences"],
+                    success_rate=data["success_rate"],
+                    examples=data["examples"],
+                    confidence=data["confidence"]
+                )
+                self.patterns.append(pattern)
+            except Exception as e:
+                logger.error(f"Error rehydrating pattern: {e}")
+        
+        self.metrics["patterns_identified"] = len(self.patterns)
+        print(f"✅ Loaded {len(self.interactions)} interactions and {len(self.patterns)} patterns.")
     
     def record_interaction(
         self,
@@ -356,46 +423,9 @@ class SelfLearningSystem:
     def get_all_patterns(self) -> List[Dict[str, Any]]:
         """Get all identified patterns"""
         return [p.to_dict() for p in self.patterns]
-    
-    def _save_interaction(self, interaction: Interaction):
-        """Save interaction to disk"""
-        filepath = os.path.join(self.storage_path, f"{interaction.id}.json")
-        
-        # Convert to dict (exclude embedding for storage)
-        data = interaction.to_dict()
-        
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
-    
-    def _load_knowledge(self):
-        """Load existing interactions and patterns from disk"""
-        if not os.path.exists(self.storage_path):
-            return
-        
-        # Load interactions
-        for filename in os.listdir(self.storage_path):
-            if filename.startswith("int_") and filename.endswith(".json"):
-                filepath = os.path.join(self.storage_path, filename)
-                try:
-                    with open(filepath, 'r') as f:
-                        data = json.load(f)
-                        # Reconstruct interaction (will regenerate embedding lazily)
-                        interaction = Interaction(
-                            id=data["id"],
-                            query=data["query"],
-                            response=data["response"],
-                            success=data["success"],
-                            feedback=data.get("feedback"),
-                            timestamp=datetime.fromisoformat(data["timestamp"]),
-                            tags=data.get("tags", [])
-                        )
-                        # Regenerate embedding
-                        if HAS_ML_DEPS and self.embedding_model:
-                            interaction.embedding = self.embedding_model.encode(interaction.query)
-                        self.interactions.append(interaction)
-                except Exception as e:
-                    print(f"Error loading interaction {filename}: {e}")
 
 
 # Global self-learning system instance
 learning_system = SelfLearningSystem()
+    
+

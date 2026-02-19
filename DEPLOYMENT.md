@@ -41,6 +41,8 @@ You MUST add the following environment variables in the Vercel dashboard under "
 | `GEMINI_MODEL` | `gemini-3-flash-preview` |
 | `USE_OLLAMA` | `false` (IMPORTANT: Disable local AI) |
 | `NEXT_PUBLIC_API_URL` | `/api` (Relative path for frontend to find backend) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_...` (From Clerk Dashboard) |
+| `CLERK_SECRET_KEY` | `sk_...` (From Clerk Dashboard) |
 
 ### 6. Deploy
 Click **"Deploy"**. Vercel will build the frontend and the Python backend serverless functions.

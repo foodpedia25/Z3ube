@@ -85,7 +85,7 @@ async def chat(request: ChatRequest):
     try:
         # Use reasoning engine for response with auto-healing
         async def generate_response():
-            result = await reasoning_engine.reason(request.message, depth=request.depth, model=request.model)
+            result = await reasoning_engine.reason(request.message, depth=request.depth, model=request.model, image=request.image)
             return result
         
         result = await auto_healer.detect_and_heal(
@@ -119,7 +119,7 @@ async def chat_stream(request: ChatRequest):
     """
     async def event_generator():
         try:
-            async for chunk in reasoning_engine.reason_stream(request.message, depth=request.depth, model=request.model):
+            async for chunk in reasoning_engine.reason_stream(request.message, depth=request.depth, model=request.model, image=request.image):
                 yield chunk
         except Exception as e:
             yield json.dumps({"type": "error", "data": str(e)}) + "\n"
