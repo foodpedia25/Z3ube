@@ -425,21 +425,37 @@ Output format:
 """
         try:
              response_text = await self._query_gemini(prompt)
-             # Clean up markdown if present
+             
+             # Robust JSON extraction using regex
+             import re
+             import json
+             
+             # Look for JSON object pattern
+             match = re.search(r'\{.*\}', response_text, re.DOTALL)
+             if match:
+                 cleaned_text = match.group(0)
+                 try:
+                     project_files = json.loads(cleaned_text)
+                     return project_files
+                 except json.JSONDecodeError:
+                     # Fallback if regex match isn't valid JSON
+                     pass
+             
+             # Fallback: Try standard cleaning if regex fails
              cleaned_text = self._extract_code_from_markdown(response_text)
-             # If extract_code returns the same text (no blocks), it might still be raw JSON or wrapped
+             # Handle remaining code block markers if any
              if cleaned_text.strip().startswith("```"):
                  cleaned_text = cleaned_text.split("```")[1]
-                 if cleaned_text.startswith("json"):
-                     cleaned_text = cleaned_text[4:]
-             
-             import json
+             if cleaned_text.strip().startswith("json"):
+                 cleaned_text = cleaned_text.strip()[4:]
+                 
              project_files = json.loads(cleaned_text)
              return project_files
+             
         except Exception as e:
             print(f"Project generation failed: {e}")
             return {
-                "error.txt": f"Failed to generate project: {str(e)}",
+                "error.txt": f"Failed to generate project: {str(e)}\n\nResponse was:\n{response_text[:500]}...",
                 "README.md": f"# Generation Error\n\nCould not generate project for: {description}"
             }
 
