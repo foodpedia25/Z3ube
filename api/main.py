@@ -250,13 +250,27 @@ async def analyze_problem(request: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health_check():
     """
-    Get system health status
+    Get system health status with provider diagnostics
     """
     health_data = auto_healer.get_health_status()
-    return HealthResponse(**health_data)
+    
+    # Check AI providers
+    providers = {
+        "gemini": reasoning_engine.gemini_client is not None,
+        "openai": reasoning_engine.openai_client.api_key is not None,
+        "anthropic": reasoning_engine.anthropic_client.api_key is not None,
+        "deepseek": reasoning_engine.deepseek_client.api_key is not None,
+        "database": learning_system.storage.engine is not None if hasattr(learning_system.storage, 'engine') else False
+    }
+    
+    return {
+        **health_data,
+        "providers": providers,
+        "version": "1.0.2+fixed"
+    }
 
 
 @app.get("/knowledge/graph")
