@@ -117,7 +117,8 @@ Once both servers are running:
 ### Frontend (Vercel)
 1. Import from GitHub
 2. Set `NEXT_PUBLIC_API_URL` to deployed backend URL
-3. Deploy
+3. **Persistence (Optional)**: Add `DATABASE_URL` to Environment Variables to enable permanent memory.
+4. Deploy
 
 ## 🌟 Key Features
 

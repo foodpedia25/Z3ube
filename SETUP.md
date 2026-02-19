@@ -37,6 +37,10 @@ Edit `/Volumes/BUFFALO/Z3ube/.env` and add your API keys:
 OPENAI_API_KEY=sk-your-key-here
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 GOOGLE_API_KEY=your-google-key-here
+
+# Optional: Cloud Database (Supabase/PostgreSQL)
+# If not provided, Z3ube uses local SQLite (not persistent on Vercel)
+DATABASE_URL=postgresql://user:password@host:port/database
 ```
 
 ### 3. Start Backend Server
