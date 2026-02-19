@@ -30,7 +30,7 @@ except ImportError:
     HAS_LANGCHAIN = False
     ChatOllama = None
 
-from core.self_learning import learning_system
+from .self_learning import learning_system
 
 
 @dataclass

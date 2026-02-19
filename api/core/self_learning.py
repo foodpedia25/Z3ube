@@ -78,7 +78,7 @@ class Pattern:
 
 
 # ... imports ...
-from core.storage import DatabaseStorage
+from .storage import DatabaseStorage
 
 class SelfLearningSystem:
     """

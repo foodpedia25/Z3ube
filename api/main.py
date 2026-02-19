@@ -16,7 +16,8 @@ import sys
 from pathlib import Path
 
 # Add parent directory to path for imports
-sys.path.append(str(Path(__file__).parent.parent))
+# sys.path hack removed
+
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,12 +35,12 @@ from api.models import (
     HealthResponse
 )
 
-from core.reasoning_engine import reasoning_engine
-from core.self_learning import learning_system
-from core.auto_healer import auto_healer
-from core.research_engine import research_engine
-from core.code_generator import code_generator
-from core.knowledge_graph import knowledge_graph
+from .core.reasoning_engine import reasoning_engine
+from .core.self_learning import learning_system
+from .core.auto_healer import auto_healer
+from .core.research_engine import research_engine
+from .core.code_generator import code_generator
+from .core.knowledge_graph import knowledge_graph
 
 # Initialize FastAPI app
 app = FastAPI(

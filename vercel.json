@@ -7,7 +7,6 @@
             "config": {
                 "maxDuration": 60,
                 "includeFiles": [
-                    "core/**",
                     "db/**",
                     "data/**",
                     "api/**",
