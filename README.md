@@ -38,11 +38,21 @@ Z3ube's reasoning engine cycles through these state-of-the-art models for every 
 
 ## ✨ Key Features
 
-- **🛡️ Auto-Healing Code**: The system can detect errors in its own code and attempt to fix them automatically.
+### 🧠 Advanced Intelligence
+- **Hybrid Reasoning Engine**: Cycles through **Gemini 3 Flash** (Speed), **GPT-4** (Logic), **Claude 3.5** (Nuance), and **Llama 3.2** (Privacy) to solve complex problems.
+- **🛡️ Auto-Healing**: The system proactively detects errors in its own code and attempts to fix them automatically.
+- **📚 Self-Learning 2.0**: Remembers every interaction and improves over time using **Vector Database** memory.
+
+### 🖥️ World-Class Interface
+- **📊 Neural Dashboard**: Real-time visualization of system health, learning metrics, and active reasoning chains.
+- **🕸️ 3D Knowledge Graph**: Interactive exploration of the AI's internal knowledge base.
+- **🤖 Robotics Studio**: Dedicated environment for generating and visualizing ROS2/Arduino projects.
+- **💻 Cyberpunk UI**: A stunning, hacker-style frontend built with Next.js and Tailwind CSS.
+
+### ⚡ Infrastructure
+- **☁️ Cloud Persistence**: Seamlessly syncs memory to PostgreSQL/Supabase for permanent learning.
 - **🔄 Recursive Forecasting**: Predicts future steps and outcomes before executing actions.
-- **📚 Self-Learning Memory**: Remembers past interactions and improves over time using vector databases.
 - **🌐 Autonomous Research**: Can browse the web to gather real-time information.
-- **💻 Matrix Interface**: A stunning, hacker-style frontend built with Next.js and Tailwind CSS.
 
 ---
 
@@ -135,6 +145,16 @@ graph TD
     Engine --> Memory[Vector Memory]
     Engine --> Tools[Research & Code Tools]
 ```
+
+---
+
+
+## 📚 Documentation
+
+- **[Installation Guide](SETUP.md)**: Extended setup instructions.
+- **[Quick Start](QUICKSTART.md)**: How to use the features.
+- **[Deployment Guide](DEPLOYMENT.md)**: Getting into production on Vercel.
+- **[Launch Checklist](LAUNCH.md)**: Production readiness.
 
 ---
 
